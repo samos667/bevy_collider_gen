@@ -1,0 +1,17 @@
+(
+    meta_format_version: "1.0",
+    asset: Process (
+        processor: "LoadTransformAndSave<ImageToCollider, IdentityAssetTransformer<ImageWithCollider>, ColliderSaver>",
+        settings: (
+            loader_settings: (
+                collider_types: [
+                    Some(ConvexPolyline),
+                ],
+                multiple: true,
+                path: "sprite/boulders.png",
+            ),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)
