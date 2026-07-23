@@ -12,5 +12,5 @@ Cargo.lock
 
 *tmp*
 *.debug
-
+/imported_assets/
 
