@@ -13,4 +13,6 @@ mod abstract_collider;
 mod collider_type;
 #[cfg(feature = "plugin")]
 pub mod plugin;
+#[cfg(feature = "preprocess")]
+pub mod preprocess;
 mod utils;

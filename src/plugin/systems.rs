@@ -3,6 +3,8 @@ use edges::BinaryImage;
 
 use super::{utils::process_image, DynamicCollider};
 use crate::prelude::{AbstractCollider, AbstractCollidersBuilder};
+#[cfg(feature = "preprocess")]
+use crate::preprocess::{LoadedCollider, combo::{SavedCollider, ColliderAtlas}};
 
 type Filter<TargetCollider> = Or<(
     Without<TargetCollider>,
@@ -11,53 +13,249 @@ type Filter<TargetCollider> = Or<(
     Changed<DynamicCollider>,
 )>;
 
+/// Updates the physics colliders using change detection.
 pub fn update_colliders<TargetCollider>(
     mut commands: Commands,
     query: Query<(Entity, &DynamicCollider, Option<&Sprite>), Filter<TargetCollider>>,
     images: Res<Assets<Image>>,
+    #[cfg(feature = "preprocess")]
+    mut saved_query: Query<&LoadedCollider>,
+    #[cfg(feature = "preprocess")]
+    mut saved_colliders: ResMut<Assets<SavedCollider>>,
+    changed_images: Query<&Sprite, AssetChanged<Sprite>>,
+    changed_atlases: Query<&Sprite, Changed<Sprite>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
 ) where
     AbstractCollider: Into<Option<TargetCollider>>,
     TargetCollider: Component,
 {
-    for (entity, dynamic_collider, sprite) in &query {
+    for (entity, dynamic_collider, sprite) in query.iter() {
         let Ok(mut target) = commands.get_entity(entity) else {
             continue;
         };
+
         let (handle, atlas, size, rect) = dynamic_collider.merge_with_sprite(sprite);
+        let handle = handle.cloned();
+        let atlas = atlas.cloned();
         let (flip_x, flip_y) = sprite
             .map(|sprite| (sprite.flip_x, sprite.flip_y))
             .unwrap_or_default();
 
-        if let Some(handle) = handle {
-            if let Some(image) = images.get(handle.id()) {
-                if let Ok(binary_image) = BinaryImage::try_from(image) {
-                    let processed_image = process_image(
-                        binary_image,
-                        atlas.and_then(|atlas| atlas.texture_rect(&layouts)),
-                        size,
-                        rect,
-                        flip_x,
-                        flip_y,
-                    );
+        // Change detection for a [`Sprite`]'s source [`Image`] & [`TextureAtlas`] index
+        let image_changed = changed_images.get(entity).is_ok();
+        let atlas_changed = changed_atlases.get(entity).is_ok()|| !sprite.is_some();
+        if !(image_changed || atlas_changed) {
+            continue;
+        }
 
-                    if let Some(collider) = AbstractCollidersBuilder::new(processed_image)
-                        .with_type(dynamic_collider.collider_type)
-                        .single()
-                        .and_then(Into::<Option<TargetCollider>>::into)
-                    {
-                        target.insert(collider);
+        if let Some(handle) = handle {
+            #[cfg(feature = "preprocess")]
+            // Find a [`SavedCollider`] for the [`Image`]
+            let saved_collider = if let Some(collider) = saved_query
+                .iter()
+                .find_map(|LoadedCollider(image_handle, collider_handle)| {
+                    if handle == *image_handle {
+                        saved_colliders.get(collider_handle)
+                    } else { None }
+                }) {
+                // Use the [`SavedCollider`] instead of generating a new one
+                let collider: (Option<TargetCollider>, Option<Vec2>) = match collider {
+                    SavedCollider::Single(abstract_collider) => (abstract_collider.clone().into(), None),
+                    SavedCollider::Multiple(colliders) => {
+                        let collider_and_pos = dynamic_collider.multiple_index
+                            .and_then(|index| colliders.get(index))
+                            .map(|(collider, offset)| {
+                                (collider.clone().into(), Some(*offset))
+                            });
+                        if let Some(collider_and_pos) = collider_and_pos {
+                            collider_and_pos
+                        } else { (None, None) }
+                    },
+                    SavedCollider::Atlas(collider_atlas) => {
+                        let collider = atlas
+                            .as_ref()
+                            .and_then(|atlas| Some(atlas.index))
+                            .and_then(|atlas_position| collider_atlas.0
+                                .get(atlas_position)
+                                .cloned()
+                            )
+                            .flatten()
+                            .and_then(|collider| collider.into());
+                        (collider, None)
+                    },
+                };
+                collider
+            } else { (None, None) };
+
+            #[cfg(feature = "preprocess")]
+            // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
+            let spawned = if let Some(collider) = saved_collider.0 {
+                if !image_changed {
+                    target.insert(collider);
+                    true
+                } else { false }
+            } else { false };
+            #[cfg(not(feature = "preprocess"))]
+            let spawned = false;
+
+            // Generate a new physics collider according to the type included in the [`DynamicCollider`]
+            if !spawned {
+                if let Some(image) = images.get(handle.id()) {
+                    if let Ok(binary_image) = BinaryImage::try_from(image) {
+                        let processed_image = process_image(
+                            binary_image,
+                            atlas.as_ref().and_then(|atlas| atlas.texture_rect(&layouts)),
+                            size,
+                            rect,
+                            flip_x,
+                            flip_y,
+                        );
+
+                        // Generate an atlas
+                        if let Some(atlas) = &dynamic_collider.texture_atlas {
+                            if let Some(layout) = layouts.get(&atlas.layout) {
+                                if let Ok(image) = image.clone().try_into_dynamic() {
+                                    let mut colliders = vec![];
+                                    for urect in layout.textures.iter() {
+                                        // Get a cropped view into the original image and calculate the collider generation from it
+                                        let sub_image = image.crop_imm(urect.min.x, urect.min.y, urect.width(), urect.height());
+                                        let collider = AbstractCollidersBuilder::try_from(sub_image)
+                                            .ok()
+                                            .and_then(|builder| builder.with_type(
+                                                    dynamic_collider.collider_type
+                                                )
+                                                .single()
+                                            );
+                                        colliders.push(collider);
+                                    }
+                                    #[cfg(feature = "preprocess")]
+                                    // Update the [`SavedCollider`] so change detection uses the correct version
+                                    saved_query
+                                        .iter_mut()
+                                        .any(|LoadedCollider(image_handle, collider_handle)| {
+                                            if handle == *image_handle {
+                                                if let Some(collider) = saved_colliders.get_mut(collider_handle) {
+                                                    *collider = SavedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone()));
+                                                    true
+                                                } else { false }
+                                            } else { false }
+                                        });
+
+                                    // Find the new collider at the current atlas position and insert it
+                                    if let Some(collider) = colliders
+                                        .get(atlas.index)
+                                        .cloned()
+                                        .flatten()
+                                        .and_then(Into::<Option<TargetCollider>>::into) {
+                                            #[cfg(debug_assertions)]
+                                            bevy::log::info!("Generating new atlas collider for entity {:?}.", entity);
+                                            target.insert(collider);
+                                    } else {
+                                        error!(
+                                            "Failed to generate collider from image for entity {:?}: atlas failed to yield a physics collider",
+                                            entity
+                                        );
+                                    }
+                                } else {
+                                    error!(
+                                        "Failed to generate collider from image for entity {:?}: failed to get dynamic image",
+                                        entity
+                                    );
+                                }
+                            } else {
+                                error!(
+                                    "Failed to generate collider from image for entity {:?}: no layout for atlas",
+                                    entity
+                                );
+                            }
+                        } else if let Some(index) = dynamic_collider.multiple_index {
+                            // Generate multiple colliders
+                            // TODO: Multiple-style colliders generate `n` collider sets instead of 1
+                            let builder = AbstractCollidersBuilder::new(processed_image)
+                                .with_type(dynamic_collider.collider_type)
+                                .absolute();
+                            let image_width = builder.image().width();
+                            let image_height = builder.image().height();
+                            let polygons = edges::EdgesIter::new(builder.image());
+                            let colliders = polygons.zip(builder.multiple().into_iter()).map(|(polygon, collider)| {
+                                let points = collider.points().unwrap().clone();
+                                let pos = polygon.first().unwrap().as_vec2()
+                                    - points.first().unwrap()
+                                    - Vec2::new((image_width / 2) as f32, (image_height / 2) as f32);
+                                (collider, pos)
+                            }).collect::<Vec<(AbstractCollider, Vec2)>>();
+
+                            #[cfg(feature = "preprocess")]
+                            // Update the [`SavedCollider`] so change detection uses the correct version
+                            saved_query
+                                .iter_mut()
+                                .any(|LoadedCollider(image_handle, collider_handle)| {
+                                    if handle == *image_handle {
+                                        if let Some(collider) = saved_colliders.get_mut(collider_handle) {
+                                            *collider = SavedCollider::Multiple(colliders.clone());
+                                            true
+                                        } else { false }
+                                    } else { false }
+                                });
+
+                            // Insert the new collider version for the current entity
+                            if let Some(collider) = colliders.get(index) {
+                                if let Some(target_collider) = collider.0.clone().into() {
+                                    #[cfg(debug_assertions)]
+                                    bevy::log::info!("Generating new multiple-style collider for entity {:?}.", entity);
+                                    target.insert(target_collider);
+                                } else {
+                                    error!(
+                                        "Failed to generate collider from image for entity {:?}: failed to convert to physics collider",
+                                        entity
+                                    );
+                                }
+                            } else {
+                                error!(
+                                    "Failed to generate collider from image for entity {:?}: requested multiple index out of bounds",
+                                    entity
+                                );
+                            }
+                        } else if let Some(abstract_collider) = AbstractCollidersBuilder::new(processed_image)
+                            .with_type(dynamic_collider.collider_type)
+                            .single()
+                        {
+                            #[cfg(feature = "preprocess")]
+                            // Update the [`SavedCollider`] so change detection uses the correct version
+                            saved_query
+                                .iter_mut()
+                                .any(|LoadedCollider(image_handle, collider_handle)| {
+                                    if handle == *image_handle {
+                                        if let Some(collider) = saved_colliders.get_mut(collider_handle) {
+                                            *collider = SavedCollider::Single(abstract_collider.clone());
+                                            true
+                                        } else { false }
+                                    } else { false }
+                                });
+
+                            // Insert the new collider
+                            if let Some(collider) = abstract_collider.into() {
+                                #[cfg(debug_assertions)]
+                                bevy::log::info!("Generating new collider for entity {:?}.", entity);
+                                target.insert(collider);
+                            } else {
+                                error!(
+                                    "Failed to generate collider from image for entity {:?}: failed to convert to physics collider",
+                                    entity
+                                );
+                            }
+                        } else {
+                            error!(
+                                "Failed to generate collider from image for entity {:?}",
+                                entity
+                            );
+                        }
                     } else {
                         error!(
-                            "Failed to generate collider from image for entity {:?}",
+                            "Failed to convert image to BinaryImage for entity {:?}",
                             entity
                         );
                     }
-                } else {
-                    error!(
-                        "Failed to convert image to BinaryImage for entity {:?}",
-                        entity
-                    );
                 }
             }
         } else {

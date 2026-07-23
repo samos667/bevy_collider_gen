@@ -5,7 +5,7 @@ pub use components::DynamicCollider;
 use systems::update_colliders;
 
 pub mod components;
-mod systems;
+pub mod systems;
 pub(crate) mod utils;
 
 #[derive(Debug, Default)]
@@ -45,9 +45,10 @@ fn assets_loaded(
         .map(|(source, sprite)| source.image.as_ref().or(sprite.map(|sprite| &sprite.image)))
         .all(|handle| {
             handle.is_some_and(|handle| {
-                asset_server
-                    .get_load_state(handle)
-                    .is_some_and(|state| matches!(state, LoadState::Loaded))
+                // If there's no load state, that means the [`Image`] has been manually added (& thus is loaded already)
+                if let Some(load_state) = asset_server.get_load_state(handle) {
+                    matches!(load_state, LoadState::Loaded)
+                } else { true }
             })
         })
 }
