@@ -1,7 +1,7 @@
 use bevy::{image::ImageLoaderSettings, prelude::*};
-#[cfg(feature = "rapier2d")]
+#[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
 use bevy_rapier2d::prelude::Collider;
-#[cfg(feature = "avian2d")]
+#[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
 use avian2d::prelude::Collider;
 use serde::{Serialize, Deserialize};
 #[cfg(feature = "preprocess")]
@@ -112,7 +112,7 @@ impl Default for SavedCollider {
 }
 
 impl SavedCollider {
-    #[cfg(feature = "rapier2d")]
+    #[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
     /// Clones this [`SavedCollider`] into a bevy_rapier [`Collider`].
     /// 
     /// Include an `atlas_index` if this is an atlas.
@@ -143,7 +143,7 @@ impl SavedCollider {
         })
     }
 
-    #[cfg(feature = "avian2d")]
+    #[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
     /// Clones this [`SavedCollider`] into an avian [`Collider`].
     /// 
     /// Include an `atlas_index` if this is an atlas.
