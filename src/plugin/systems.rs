@@ -88,7 +88,13 @@ pub fn update_colliders<TargetCollider>(
 
             #[cfg(feature = "preprocess")]
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
-            let exists_unchanged = changes
+            let exists = changes.get(&entity).is_some();
+            if !exists {
+                if let Some(sprite) = sprite {
+                    changes.insert(entity, sprite.clone());
+                }
+            }
+            let unchanged = changes
                 .get(&entity)
                 .is_some_and(|old_sprite| sprite.is_some_and(|new_sprite| {
                     old_sprite.flip_x == new_sprite.flip_x &&
@@ -98,7 +104,7 @@ pub fn update_colliders<TargetCollider>(
                     old_sprite.texture_atlas.as_ref().map(|atlas| &atlas.layout) == new_sprite.texture_atlas.as_ref().map(|atlas| &atlas.layout) &&
                     old_sprite.rect == new_sprite.rect
                 }));
-            let changed = if !exists_unchanged {
+            let changed = if !unchanged {
                     if let Some(sprite) = sprite {
                         changes.insert(entity, sprite.clone());
                         true
