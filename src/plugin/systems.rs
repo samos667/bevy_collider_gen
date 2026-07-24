@@ -93,8 +93,6 @@ pub fn update_colliders<TargetCollider>(
                     let Ok(mut target) = commands.get_entity(entity) else {
                         continue;
                     };
-                    #[cfg(debug_assertions)]
-                    bevy::log::info!("Reusing existing saved collider for entity {:?}.", entity);
                     target.insert(collider);
                     true
                 } else { false }
@@ -155,7 +153,7 @@ pub fn update_colliders<TargetCollider>(
                                             let Ok(mut target) = commands.get_entity(entity) else {
                                                 continue;
                                             };
-                                            #[cfg(debug_assertions)]
+                                            #[cfg(all(debug_assertions, feature = "preprocess"))]
                                             bevy::log::info!("Generating new atlas collider for entity {:?}.", entity);
                                             target.insert(collider);
                                     } else {
@@ -217,7 +215,7 @@ pub fn update_colliders<TargetCollider>(
                                     let Ok(mut target) = commands.get_entity(entity) else {
                                         continue;
                                     };
-                                    #[cfg(debug_assertions)]
+                                    #[cfg(all(debug_assertions, feature = "preprocess"))]
                                     bevy::log::info!("Generating new multiple-style collider for entity {:?}.", entity);
                                     target.insert(target_collider);
                                 } else {
@@ -266,7 +264,7 @@ pub fn update_colliders<TargetCollider>(
                                         let Ok(mut target) = commands.get_entity(entity) else {
                                             continue;
                                         };
-                                        #[cfg(debug_assertions)]
+                                        #[cfg(all(debug_assertions, feature = "preprocess"))]
                                         bevy::log::info!("Generating new collider for entity {:?}.", entity);
                                         target.insert(collider);
                                     } else {
