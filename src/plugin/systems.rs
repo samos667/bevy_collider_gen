@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashMap, prelude::*};
 use edges::BinaryImage;
 
 use super::{utils::process_image, DynamicCollider};
@@ -25,6 +25,7 @@ pub fn update_colliders<TargetCollider>(
     changed_images: Query<&Sprite, AssetChanged<Sprite>>,
     changed_atlases: Query<&Sprite, Changed<Sprite>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
+    mut changes: Local<HashMap<Entity, Sprite>>,
 ) where
     AbstractCollider: Into<Option<TargetCollider>>,
     TargetCollider: Component,
@@ -87,9 +88,24 @@ pub fn update_colliders<TargetCollider>(
 
             #[cfg(feature = "preprocess")]
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
-            // TODO: Sprite flip, size & rect changes are not checked in change detection!
+            let exists_unchanged = changes
+                .get(&entity)
+                .is_some_and(|old_sprite| sprite.is_some_and(|new_sprite| {
+                    old_sprite.flip_x == new_sprite.flip_x &&
+                    old_sprite.flip_y == new_sprite.flip_y &&
+                    old_sprite.image == new_sprite.image &&
+                    old_sprite.custom_size == new_sprite.custom_size &&
+                    old_sprite.texture_atlas.as_ref().map(|atlas| &atlas.layout) == new_sprite.texture_atlas.as_ref().map(|atlas| &atlas.layout) &&
+                    old_sprite.rect == new_sprite.rect
+                }));
+            let changed = if !exists_unchanged {
+                    if let Some(sprite) = sprite {
+                        changes.insert(entity, sprite.clone());
+                        true
+                    } else { false }
+                } else { false };
             let spawned = if let Some(collider) = cached_collider.0 {
-                if !image_changed {
+                if !image_changed && !changed {
                     let Ok(mut target) = commands.get_entity(entity) else {
                         continue;
                     };
