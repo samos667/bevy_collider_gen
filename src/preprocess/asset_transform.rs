@@ -316,20 +316,20 @@ mod test {
     #[test]
     fn imported_asset_verification() -> Result<(), ColliderProcessError> {
         // Load original version
-        let file = std::fs::File::open("assets/sprite/car.png").expect("image file to exist");
+        let file = std::fs::File::open("assets/sprite_with_meta/car.png").expect("image file to exist");
         let buffered_file = std::io::BufReader::new(file);
         let dynamic_image = image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
         let bevy_image = Image::from_dynamic(dynamic_image, true, default());
 
         // Load processed version
-        let file = std::fs::File::open("imported_assets/Default/sprite/car.png").expect("image file to exist");
+        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png").expect("image file to exist");
         let mut buffered_file = std::io::BufReader::new(file);
         let mut serialized = String::new();
         buffered_file.read_to_string(&mut serialized).expect("buffered file reads");
         let mut collider_combo: ImageWithColliderFile = ron::de::from_str(&serialized).expect("combo deserializes");
 
         // Load settings
-        let file = std::fs::File::open("imported_assets/Default/sprite/car.png.meta").expect("image file to exist");
+        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png.meta").expect("image file to exist");
         let mut buffered_file = std::io::BufReader::new(file);
         let mut serialized = String::new();
         buffered_file.read_to_string(&mut serialized).expect("buffered file reads");
