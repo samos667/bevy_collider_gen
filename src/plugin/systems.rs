@@ -91,7 +91,11 @@ pub fn update_colliders<TargetCollider>(
             let exists = changes.get(&entity).is_some();
             if !exists {
                 if let Some(sprite) = sprite {
-                    changes.insert(entity, sprite.clone());
+                    changes.insert(entity, Sprite {
+                        image: sprite.image.clone(),
+                        texture_atlas: sprite.texture_atlas.clone(),
+                        ..default()
+                    });
                 }
             }
             let unchanged = changes
