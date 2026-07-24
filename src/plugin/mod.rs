@@ -1,6 +1,8 @@
 use bevy::{asset::LoadState, prelude::*};
 
 use crate::prelude::AbstractCollider;
+#[cfg(feature = "preprocess")]
+use crate::preprocess::combo::SavedCollider;
 pub use components::DynamicCollider;
 use systems::update_colliders;
 
@@ -29,6 +31,8 @@ where
     TargetCollider: Component,
 {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "preprocess")]
+        app.init_asset::<SavedCollider>();
         app.add_systems(
             Last,
             update_colliders::<TargetCollider>.run_if(assets_loaded),

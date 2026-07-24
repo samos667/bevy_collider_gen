@@ -24,7 +24,6 @@ pub struct PreloadColliderPlugin {
 impl Plugin for PreloadColliderPlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_asset::<SavedCollider>()
             .init_asset::<ImageWithCollider>()
             .register_asset_loader(ColliderLoader)
             .register_asset_loader(ImageToCollider)

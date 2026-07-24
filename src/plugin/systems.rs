@@ -30,10 +30,6 @@ pub fn update_colliders<TargetCollider>(
     TargetCollider: Component,
 {
     for (entity, dynamic_collider, sprite) in query.iter() {
-        let Ok(mut target) = commands.get_entity(entity) else {
-            continue;
-        };
-
         let (handle, atlas, size, rect) = dynamic_collider.merge_with_sprite(sprite);
         let handle = handle.cloned();
         let atlas = atlas.cloned();
@@ -45,6 +41,8 @@ pub fn update_colliders<TargetCollider>(
         let image_changed = changed_images.get(entity).is_ok();
         let atlas_changed = changed_atlases.get(entity).is_ok()|| !sprite.is_some();
         if !(image_changed || atlas_changed) {
+            #[cfg(debug_assertions)]
+            bevy::log::info!("Ignoring entity {:?} for collider updates (no change detected).", entity);
             continue;
         }
 
@@ -91,6 +89,11 @@ pub fn update_colliders<TargetCollider>(
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
             let spawned = if let Some(collider) = saved_collider.0 {
                 if !image_changed {
+                    let Ok(mut target) = commands.get_entity(entity) else {
+                        continue;
+                    };
+                    #[cfg(debug_assertions)]
+                    bevy::log::info!("Reusing existing saved collider for entity {:?}.", entity);
                     target.insert(collider);
                     true
                 } else { false }
@@ -112,7 +115,7 @@ pub fn update_colliders<TargetCollider>(
                         );
 
                         // Generate an atlas
-                        if let Some(atlas) = &dynamic_collider.texture_atlas {
+                        if let Some(atlas) = &atlas {
                             if let Some(layout) = layouts.get(&atlas.layout) {
                                 if let Ok(image) = image.clone().try_into_dynamic() {
                                     let mut colliders = vec![];
@@ -130,7 +133,7 @@ pub fn update_colliders<TargetCollider>(
                                     }
                                     #[cfg(feature = "preprocess")]
                                     // Update the [`SavedCollider`] so change detection uses the correct version
-                                    saved_query
+                                    if !saved_query
                                         .iter_mut()
                                         .any(|LoadedCollider(image_handle, collider_handle)| {
                                             if handle == *image_handle {
@@ -139,7 +142,13 @@ pub fn update_colliders<TargetCollider>(
                                                     true
                                                 } else { false }
                                             } else { false }
-                                        });
+                                        }) {
+                                            // If no [`LoadedCollider`] exists, create a new one
+                                            commands.spawn(LoadedCollider(
+                                                handle,
+                                                saved_colliders.add(SavedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone())))
+                                            ));
+                                    }
 
                                     // Find the new collider at the current atlas position and insert it
                                     if let Some(collider) = colliders
@@ -147,6 +156,9 @@ pub fn update_colliders<TargetCollider>(
                                         .cloned()
                                         .flatten()
                                         .and_then(Into::<Option<TargetCollider>>::into) {
+                                            let Ok(mut target) = commands.get_entity(entity) else {
+                                                continue;
+                                            };
                                             #[cfg(debug_assertions)]
                                             bevy::log::info!("Generating new atlas collider for entity {:?}.", entity);
                                             target.insert(collider);
@@ -187,7 +199,7 @@ pub fn update_colliders<TargetCollider>(
 
                             #[cfg(feature = "preprocess")]
                             // Update the [`SavedCollider`] so change detection uses the correct version
-                            saved_query
+                            if !saved_query
                                 .iter_mut()
                                 .any(|LoadedCollider(image_handle, collider_handle)| {
                                     if handle == *image_handle {
@@ -196,11 +208,17 @@ pub fn update_colliders<TargetCollider>(
                                             true
                                         } else { false }
                                     } else { false }
-                                });
+                                })  {
+                                    // If no [`LoadedCollider`] exists, create a new one
+                                    commands.spawn(LoadedCollider(handle, saved_colliders.add(SavedCollider::Multiple(colliders.clone()))));
+                            }
 
                             // Insert the new collider version for the current entity
                             if let Some(collider) = colliders.get(index) {
                                 if let Some(target_collider) = collider.0.clone().into() {
+                                    let Ok(mut target) = commands.get_entity(entity) else {
+                                        continue;
+                                    };
                                     #[cfg(debug_assertions)]
                                     bevy::log::info!("Generating new multiple-style collider for entity {:?}.", entity);
                                     target.insert(target_collider);
@@ -222,7 +240,7 @@ pub fn update_colliders<TargetCollider>(
                         {
                             #[cfg(feature = "preprocess")]
                             // Update the [`SavedCollider`] so change detection uses the correct version
-                            saved_query
+                            if !saved_query
                                 .iter_mut()
                                 .any(|LoadedCollider(image_handle, collider_handle)| {
                                     if handle == *image_handle {
@@ -231,10 +249,16 @@ pub fn update_colliders<TargetCollider>(
                                             true
                                         } else { false }
                                     } else { false }
-                                });
+                                })   {
+                                    // If no [`LoadedCollider`] exists, create a new one
+                                    commands.spawn(LoadedCollider(handle, saved_colliders.add(SavedCollider::Single(abstract_collider.clone()))));
+                            }
 
                             // Insert the new collider
                             if let Some(collider) = abstract_collider.into() {
+                                let Ok(mut target) = commands.get_entity(entity) else {
+                                    continue;
+                                };
                                 #[cfg(debug_assertions)]
                                 bevy::log::info!("Generating new collider for entity {:?}.", entity);
                                 target.insert(collider);
