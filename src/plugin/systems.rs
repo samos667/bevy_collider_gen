@@ -4,7 +4,7 @@ use edges::BinaryImage;
 use super::{utils::process_image, DynamicCollider};
 use crate::prelude::{AbstractCollider, AbstractCollidersBuilder};
 #[cfg(feature = "preprocess")]
-use crate::preprocess::{LoadedCollider, combo::{SavedCollider, ColliderAtlas}};
+use crate::preprocess::{LoadedCollider, combo::{CachedCollider, ColliderAtlas}};
 
 type Filter<TargetCollider> = Or<(
     Without<TargetCollider>,
@@ -21,7 +21,7 @@ pub fn update_colliders<TargetCollider>(
     #[cfg(feature = "preprocess")]
     mut saved_query: Query<&LoadedCollider>,
     #[cfg(feature = "preprocess")]
-    mut saved_colliders: ResMut<Assets<SavedCollider>>,
+    mut cached_colliders: ResMut<Assets<CachedCollider>>,
     changed_images: Query<&Sprite, AssetChanged<Sprite>>,
     changed_atlases: Query<&Sprite, Changed<Sprite>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
@@ -48,18 +48,18 @@ pub fn update_colliders<TargetCollider>(
 
         if let Some(handle) = handle {
             #[cfg(feature = "preprocess")]
-            // Find a [`SavedCollider`] for the [`Image`]
-            let saved_collider = if let Some(collider) = saved_query
+            // Find a [`CachedCollider`] for the [`Image`]
+            let cached_collider = if let Some(collider) = saved_query
                 .iter()
                 .find_map(|LoadedCollider(image_handle, collider_handle)| {
                     if handle == *image_handle {
-                        saved_colliders.get(collider_handle)
+                        cached_colliders.get(collider_handle)
                     } else { None }
                 }) {
-                // Use the [`SavedCollider`] instead of generating a new one
+                // Use the [`CachedCollider`] instead of generating a new one
                 let collider: (Option<TargetCollider>, Option<Vec2>) = match collider {
-                    SavedCollider::Single(abstract_collider) => (abstract_collider.clone().into(), None),
-                    SavedCollider::Multiple(colliders) => {
+                    CachedCollider::Single(abstract_collider) => (abstract_collider.clone().into(), None),
+                    CachedCollider::Multiple(colliders) => {
                         let collider_and_pos = dynamic_collider.multiple_index
                             .and_then(|index| colliders.get(index))
                             .map(|(collider, offset)| {
@@ -69,7 +69,7 @@ pub fn update_colliders<TargetCollider>(
                             collider_and_pos
                         } else { (None, None) }
                     },
-                    SavedCollider::Atlas(collider_atlas) => {
+                    CachedCollider::Atlas(collider_atlas) => {
                         let collider = atlas
                             .as_ref()
                             .and_then(|atlas| Some(atlas.index))
@@ -88,7 +88,7 @@ pub fn update_colliders<TargetCollider>(
             #[cfg(feature = "preprocess")]
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
             // TODO: Sprite flip, size & rect changes are not checked in change detection!
-            let spawned = if let Some(collider) = saved_collider.0 {
+            let spawned = if let Some(collider) = cached_collider.0 {
                 if !image_changed {
                     let Ok(mut target) = commands.get_entity(entity) else {
                         continue;
@@ -126,13 +126,13 @@ pub fn update_colliders<TargetCollider>(
                                         colliders.push(collider);
                                     }
                                     #[cfg(feature = "preprocess")]
-                                    // Update the [`SavedCollider`] so change detection uses the correct version
+                                    // Update the [`CachedCollider`] so change detection uses the correct version
                                     if !saved_query
                                         .iter_mut()
                                         .any(|LoadedCollider(image_handle, collider_handle)| {
                                             if handle == *image_handle {
-                                                if let Some(collider) = saved_colliders.get_mut(collider_handle) {
-                                                    *collider = SavedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone()));
+                                                if let Some(collider) = cached_colliders.get_mut(collider_handle) {
+                                                    *collider = CachedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone()));
                                                     true
                                                 } else { false }
                                             } else { false }
@@ -140,7 +140,7 @@ pub fn update_colliders<TargetCollider>(
                                             // If no [`LoadedCollider`] exists, create a new one
                                             commands.spawn(LoadedCollider(
                                                 handle,
-                                                saved_colliders.add(SavedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone())))
+                                                cached_colliders.add(CachedCollider::Atlas(ColliderAtlas(colliders.clone(), layout.clone())))
                                             ));
                                     }
 
@@ -194,19 +194,19 @@ pub fn update_colliders<TargetCollider>(
                             }).collect::<Vec<(AbstractCollider, Vec2)>>();
 
                             #[cfg(feature = "preprocess")]
-                            // Update the [`SavedCollider`] so change detection uses the correct version
+                            // Update the [`CachedCollider`] so change detection uses the correct version
                             if !saved_query
                                 .iter_mut()
                                 .any(|LoadedCollider(image_handle, collider_handle)| {
                                     if handle == *image_handle {
-                                        if let Some(collider) = saved_colliders.get_mut(collider_handle) {
-                                            *collider = SavedCollider::Multiple(colliders.clone());
+                                        if let Some(collider) = cached_colliders.get_mut(collider_handle) {
+                                            *collider = CachedCollider::Multiple(colliders.clone());
                                             true
                                         } else { false }
                                     } else { false }
                                 })  {
                                     // If no [`LoadedCollider`] exists, create a new one
-                                    commands.spawn(LoadedCollider(handle, saved_colliders.add(SavedCollider::Multiple(colliders.clone()))));
+                                    commands.spawn(LoadedCollider(handle, cached_colliders.add(CachedCollider::Multiple(colliders.clone()))));
                             }
 
                             // Insert the new collider version for the current entity
@@ -244,19 +244,19 @@ pub fn update_colliders<TargetCollider>(
                                 .with_type(dynamic_collider.collider_type)
                                 .single() {
                                     #[cfg(feature = "preprocess")]
-                                    // Update the [`SavedCollider`] so change detection uses the correct version
+                                    // Update the [`CachedCollider`] so change detection uses the correct version
                                     if !saved_query
                                         .iter_mut()
                                         .any(|LoadedCollider(image_handle, collider_handle)| {
                                             if handle == *image_handle {
-                                                if let Some(collider) = saved_colliders.get_mut(collider_handle) {
-                                                    *collider = SavedCollider::Single(abstract_collider.clone());
+                                                if let Some(collider) = cached_colliders.get_mut(collider_handle) {
+                                                    *collider = CachedCollider::Single(abstract_collider.clone());
                                                     true
                                                 } else { false }
                                             } else { false }
                                         })   {
                                             // If no [`LoadedCollider`] exists, create a new one
-                                            commands.spawn(LoadedCollider(handle, saved_colliders.add(SavedCollider::Single(abstract_collider.clone()))));
+                                            commands.spawn(LoadedCollider(handle, cached_colliders.add(CachedCollider::Single(abstract_collider.clone()))));
                                     }
 
                                     // Insert the new collider

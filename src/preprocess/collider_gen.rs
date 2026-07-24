@@ -4,12 +4,12 @@ use crate::{
     collider_type::ColliderType,
     preprocess::{
         asset_transform::ColliderProcessError,
-        combo::{ColliderAtlas, ColliderSettingsInit,SavedCollider}
+        combo::{ColliderAtlas, ColliderSettingsInit,CachedCollider}
     }
 };
 
-/// Generates a [`SavedCollider`] from an [`Image`] and [`ColliderSettings`] using a compute-intensive sub-app rendering cycle.
-pub(crate) fn collider_from_image(asset: &Image, settings: &ColliderSettingsInit) -> Result<SavedCollider, ColliderProcessError> {
+/// Generates a [`CachedCollider`] from an [`Image`] and [`ColliderSettings`] using a compute-intensive sub-app rendering cycle.
+pub(crate) fn collider_from_image(asset: &Image, settings: &ColliderSettingsInit) -> Result<CachedCollider, ColliderProcessError> {
     if let Some(atlas_init) = &settings.texture_atlas {
         // Convert the Bevy [`Image`] into an `image` crate [`DynamicImage`] so it can be cropped
         let image = asset.clone().try_into_dynamic().map_err(|e| ColliderProcessError(e.to_string()))?;
@@ -48,7 +48,7 @@ pub(crate) fn collider_from_image(asset: &Image, settings: &ColliderSettingsInit
             colliders.0.push(collider);
         }
 
-        Ok(SavedCollider::Atlas(colliders))
+        Ok(CachedCollider::Atlas(colliders))
     } else if settings.multiple {
         // Create multiple AbstractColliders from Image
         let colliders = AbstractCollidersBuilder::try_from(asset)
@@ -76,7 +76,7 @@ pub(crate) fn collider_from_image(asset: &Image, settings: &ColliderSettingsInit
                 }).collect()
             });
         if let Some(colliders) = colliders {
-            Ok(SavedCollider::Multiple(colliders))
+            Ok(CachedCollider::Multiple(colliders))
         } else { Err(ColliderProcessError("failed to generate transparency collider for image asset".into())) }
     } else {
         // Create AbstractCollider from Image
@@ -92,7 +92,7 @@ pub(crate) fn collider_from_image(asset: &Image, settings: &ColliderSettingsInit
                 )
                 .single()
             ) {
-            Ok(SavedCollider::Single(collider))
+            Ok(CachedCollider::Single(collider))
         } else {
             return Err(ColliderProcessError("failed to generate transparency collider for image asset".into()));
         }

@@ -8,7 +8,7 @@ use bevy::{asset::{
 use image::ExtendedColorType;
 use ron::{Error, ser::PrettyConfig};
 use crate::preprocess::{
-        collider_gen::collider_from_image, combo::{ImageWithCollider, ImageWithColliderFile, ColliderSettings, ColliderSettingsInit, SavedCollider}};
+        collider_gen::collider_from_image, combo::{ImageWithCollider, ImageWithColliderFile, ColliderSettings, ColliderSettingsInit, CachedCollider}};
 
 /// An [`AssetLoader`] that transforms an [`Image`] into an [`AbstractCollider`], loading both as assets.
 #[derive(Debug, Default, Reflect)]
@@ -43,7 +43,7 @@ impl AssetLoader for ImageToCollider {
     }
 }
 
-/// Loads a [`SavedColliders`] struct from file.
+/// Loads a [`CachedColliders`] struct from file.
 #[derive(Debug, Default, Reflect)]
 pub struct ColliderLoader;
 
@@ -156,7 +156,7 @@ impl AssetSaver for ColliderSaver {
         Ok(ColliderSettings {
             collider_types: vec![], // TODO: Get these from collider
             texture_atlas: if let Some(atlas) = match collider_combo_file.collider {
-                SavedCollider::Atlas(collider_atlas) => Some(collider_atlas.1),
+                CachedCollider::Atlas(collider_atlas) => Some(collider_atlas.1),
                 _ => None,
             } {
                 Some(atlas)

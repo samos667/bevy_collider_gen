@@ -14,18 +14,18 @@ use crate::plugin::DynamicCollider;
 
 #[derive(Debug, Default, PartialEq, Reflect, Clone, Asset)]
 pub struct ImageWithCollider {
-    pub collider: SavedCollider,
+    pub collider: CachedCollider,
     pub source: Image,
     pub path: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ImageWithColliderFile {
-    pub collider: SavedCollider,
+    pub collider: CachedCollider,
     pub source: Vec<u8>,
 }
 
-/// The [`Image`] source of a [`SavedCollider`].
+/// The [`Image`] source of a [`CachedCollider`].
 #[derive(Debug, Default, Clone, Reflect, Serialize, Deserialize)]
 pub struct ColliderSource(pub String);
 
@@ -96,7 +96,7 @@ impl Default for ColliderSettingsInit {
 
 /// An `enum` that either contains a single [`AbstractCollider`] or a collection that matches a [`TextureAtlasLayout`].
 #[derive(Debug, Reflect, PartialEq, Asset, Clone, Component, Serialize, Deserialize)]
-pub enum SavedCollider {
+pub enum CachedCollider {
     /// A single collider generated from an image.
     Single(AbstractCollider),
     /// Multiple colliders generated from an image, along with their offsets.
@@ -105,29 +105,29 @@ pub enum SavedCollider {
     Atlas(ColliderAtlas),
 }
 
-impl Default for SavedCollider {
+impl Default for CachedCollider {
     fn default() -> Self {
         Self::Single(AbstractCollider::Polyline(vec![]))
     }
 }
 
-impl SavedCollider {
+impl CachedCollider {
     #[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
-    /// Clones this [`SavedCollider`] into a bevy_rapier [`Collider`].
+    /// Clones this [`CachedCollider`] into a bevy_rapier [`Collider`].
     /// 
     /// Include an `atlas_index` if this is an atlas.
     pub fn to_rapier(&self, atlas_index: Option<usize>) -> Result<Vec<Collider>, ColliderProcessError> {
         let failed = ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
         Ok(match &self {
-            SavedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_rapier().ok_or(failed)?],
-            SavedCollider::Multiple(abstract_colliders) => {
+            CachedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_rapier().ok_or(failed)?],
+            CachedCollider::Multiple(abstract_colliders) => {
                 let mut colliders = vec![];
                 for (abstract_collider, _) in abstract_colliders.clone() {
                     colliders.push(abstract_collider.to_rapier().ok_or(failed.clone())?);
                 }
                 colliders
             },
-            SavedCollider::Atlas(collider_atlas) => {
+            CachedCollider::Atlas(collider_atlas) => {
                 if let Some(index) = atlas_index {
                     vec![
                         collider_atlas.0
@@ -144,21 +144,21 @@ impl SavedCollider {
     }
 
     #[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
-    /// Clones this [`SavedCollider`] into an avian [`Collider`].
+    /// Clones this [`CachedCollider`] into an avian [`Collider`].
     /// 
     /// Include an `atlas_index` if this is an atlas.
     pub fn to_avian(&self, atlas_index: Option<usize>) -> Result<Vec<Collider>, ColliderProcessError> {
         let failed = ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
         Ok(match &self {
-            SavedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_avian().ok_or(failed)?],
-            SavedCollider::Multiple(abstract_colliders) => {
+            CachedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_avian().ok_or(failed)?],
+            CachedCollider::Multiple(abstract_colliders) => {
                 let mut colliders = vec![];
                 for (abstract_collider, _) in abstract_colliders.clone() {
                     colliders.push(abstract_collider.to_avian().ok_or(failed.clone())?);
                 }
                 colliders
             },
-            SavedCollider::Atlas(collider_atlas) => {
+            CachedCollider::Atlas(collider_atlas) => {
                 if let Some(index) = atlas_index {
                     vec![
                         collider_atlas.0
@@ -176,19 +176,19 @@ impl SavedCollider {
 }
 
 #[cfg(feature = "plugin")]
-impl TryFrom<SavedCollider> for DynamicCollider {
+impl TryFrom<CachedCollider> for DynamicCollider {
     type Error = ColliderProcessError;
 
-    fn try_from(value: SavedCollider) -> std::prelude::v1::Result<Self, Self::Error> {
+    fn try_from(value: CachedCollider) -> std::prelude::v1::Result<Self, Self::Error> {
         Ok(match value {
-            SavedCollider::Single(abstract_collider) => Self {
+            CachedCollider::Single(abstract_collider) => Self {
                 collider_type: abstract_collider.into(),
                 ..default()
             },
-            SavedCollider::Multiple(_) => {
+            CachedCollider::Multiple(_) => {
                 return Err(ColliderProcessError("multiple colliders cannot become one DynamicCollider".into()));
             },
-            SavedCollider::Atlas(collider_atlas) => Self {
+            CachedCollider::Atlas(collider_atlas) => Self {
                 collider_type: collider_atlas.0.iter()
                     .flatten()
                     .next()

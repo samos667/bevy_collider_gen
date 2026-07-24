@@ -3,7 +3,7 @@ use bevy::{asset::{
     transformer::IdentityAssetTransformer,
 }, platform::collections::HashSet, prelude::*};
 use crate::{
-    preprocess::{asset_transform::{ColliderLoader, ColliderSaver, ImageToCollider}, combo::{ImageWithCollider, SavedCollider}}
+    preprocess::{asset_transform::{ColliderLoader, ColliderSaver, ImageToCollider}, combo::{ImageWithCollider, CachedCollider}}
 };
 
 pub mod collider_gen;
@@ -47,21 +47,21 @@ impl PreloadColliderPlugin {
 }
 
 #[derive(Default, Debug, Component, Clone)]
-/// A struct that holds loaded [`Image`]s and their generated [`SavedCollider`].
+/// A struct that holds loaded [`Image`]s and their generated [`CachedCollider`].
 /// 
 /// A [`Name`] [`Component`] contains the original file path for the [`Image`].
-pub struct LoadedCollider(pub Handle<Image>, pub Handle<SavedCollider>);
+pub struct LoadedCollider(pub Handle<Image>, pub Handle<CachedCollider>);
 
 /// Converts newly loaded [`ImageWithCollider`] assets into loaded [`Image`] assets for typical use outside the plugin.
 pub fn init_assets (
     mut combo_reader: MessageReader<AssetEvent<ImageWithCollider>>,
     combos: Res<Assets<ImageWithCollider>>,
     mut images: ResMut<Assets<Image>>,
-    mut colliders: ResMut<Assets<SavedCollider>>,
+    mut colliders: ResMut<Assets<CachedCollider>>,
     mut commands: Commands,
     mut processed: Local<HashSet<String>>,
 ) {
-    // Unzip the [`ImageWithCollider`] into [`SavedCollider`] and [`Image`] assets
+    // Unzip the [`ImageWithCollider`] into [`CachedCollider`] and [`Image`] assets
     let loaded_images = combo_reader.read()
         .filter_map(|event| match *event {
             AssetEvent::LoadedWithDependencies { id } => {
