@@ -117,6 +117,7 @@ fn boulders_spawn(
         .convex_polyline();
     let polygons = EdgesIter::new(builder.image());
 
+    #[allow(unused_variables)]
     for (index, (polygon, collider)) in polygons.zip(builder.multiple()).enumerate() {
         let points = collider.points().unwrap().clone();
         let pos = polygon.first().unwrap().as_vec2()

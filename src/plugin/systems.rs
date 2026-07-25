@@ -1,4 +1,6 @@
-use bevy::{platform::collections::HashMap, prelude::*};
+#[cfg(feature = "preprocess")]
+use bevy::platform::collections::HashMap;
+use bevy::prelude::*;
 use edges::BinaryImage;
 
 use super::{utils::process_image, DynamicCollider};
@@ -27,7 +29,7 @@ pub fn update_colliders<TargetCollider>(
     changed_images: Query<&Sprite, AssetChanged<Sprite>>,
     changed_atlases: Query<&Sprite, Changed<Sprite>>,
     layouts: Res<Assets<TextureAtlasLayout>>,
-    mut changes: Local<HashMap<Entity, Sprite>>,
+    #[cfg(feature = "preprocess")] mut changes: Local<HashMap<Entity, Sprite>>,
 ) where
     AbstractCollider: Into<Option<TargetCollider>>,
     TargetCollider: Component,
@@ -53,6 +55,7 @@ pub fn update_colliders<TargetCollider>(
         }
 
         if let Some(handle) = handle {
+            #[cfg(feature = "preprocess")]
             let cached_collider = find_collider(
                 &handle,
                 &saved_query,
@@ -61,9 +64,10 @@ pub fn update_colliders<TargetCollider>(
                 atlas.as_ref(),
             );
 
-            #[cfg(feature = "preprocess")]
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
+            #[cfg(feature = "preprocess")]
             let exists = changes.get(&entity).is_some();
+            #[cfg(feature = "preprocess")]
             if !exists {
                 if let Some(sprite) = sprite {
                     changes.insert(
@@ -76,6 +80,8 @@ pub fn update_colliders<TargetCollider>(
                     );
                 }
             }
+
+            #[cfg(feature = "preprocess")]
             let sprite_unchanged = changes.get(&entity).is_some_and(|old_sprite| {
                 sprite.is_some_and(|new_sprite| {
                     old_sprite.flip_x == new_sprite.flip_x
@@ -87,6 +93,8 @@ pub fn update_colliders<TargetCollider>(
                         && old_sprite.rect == new_sprite.rect
                 })
             });
+
+            #[cfg(feature = "preprocess")]
             let sprite_changed = if sprite_unchanged {
                 false
             } else if let Some(sprite) = sprite {
@@ -95,6 +103,8 @@ pub fn update_colliders<TargetCollider>(
             } else {
                 false
             };
+
+            #[cfg(feature = "preprocess")]
             let spawned = if let Some(collider) = cached_collider.0 {
                 if !image_changed && !sprite_changed {
                     let Ok(mut target) = commands.get_entity(entity) else {
