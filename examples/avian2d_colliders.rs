@@ -2,7 +2,9 @@
 use avian2d::prelude::*;
 use bevy::{asset::LoadState, color::palettes::css, prelude::*};
 #[cfg(feature = "preprocess")]
-use bevy_collider_gen::preprocess::{PreloadColliderPlugin, combo::ImageWithCollider, LoadedCollider};
+use bevy_collider_gen::preprocess::{
+    combo::ImageWithCollider, LoadedCollider, PreloadColliderPlugin,
+};
 use bevy_collider_gen::{
     plugin::{DynamicCollider, DynamicColliderPlugin},
     prelude::*,
@@ -119,7 +121,10 @@ fn boulders_spawn(
         let points = collider.points().unwrap().clone();
         let pos = polygon.first().unwrap().as_vec2()
             - points.first().unwrap()
-            - Vec2::new((sprite_image.width() / 2) as f32, (sprite_image.height() / 2) as f32);
+            - Vec2::new(
+                (sprite_image.width() / 2) as f32,
+                (sprite_image.height() / 2) as f32,
+            );
         #[cfg(not(feature = "preprocess"))]
         let collider = collider.to_avian().unwrap();
 
@@ -150,22 +155,22 @@ fn boulders_spawn(
 
 #[cfg(feature = "preprocess")]
 /// Collects labeled handles to the loaded images.
-fn load_images(
-    image_query: Query<(&Name, &LoadedCollider)>,
-    mut game_assets: ResMut<GameAsset>
-) {
-    image_query.iter().for_each(|(name, LoadedCollider(image_handle, _))| {
-        // Map the image paths to simpler names (optional)
-        let name = match name.as_str() {
-            "sprite_with_meta/car.png" => "car",
-            "sprite_with_meta/terrain.png" => "terrain",
-            "sprite_with_meta/boulders.png" => "boulders",
-            "sprite_with_meta/atlas.png" => "atlas",
-            other => other
-        }.to_string();
+fn load_images(image_query: Query<(&Name, &LoadedCollider)>, mut game_assets: ResMut<GameAsset>) {
+    image_query
+        .iter()
+        .for_each(|(name, LoadedCollider(image_handle, _))| {
+            // Map the image paths to simpler names (optional)
+            let name = match name.as_str() {
+                "sprite_with_meta/car.png" => "car",
+                "sprite_with_meta/terrain.png" => "terrain",
+                "sprite_with_meta/boulders.png" => "boulders",
+                "sprite_with_meta/atlas.png" => "atlas",
+                other => other,
+            }
+            .to_string();
 
-        game_assets.image_handles.insert(name, image_handle.clone());
-    });
+            game_assets.image_handles.insert(name, image_handle.clone());
+        });
 }
 
 ///
@@ -185,7 +190,7 @@ pub struct GameAsset {
     pub image_handles: HashMap<String, Handle<Image>>,
     #[cfg(feature = "preprocess")]
     /// Contains [`Handle`]s to the processed collider assets.
-    /// 
+    ///
     /// These are needed to load the processed colliders,
     /// but can be removed once the [`LoadedCollider`] [`Component`]s are spawned.
     pub collider_handles: HashMap<String, Handle<ImageWithCollider>>,
@@ -227,19 +232,9 @@ fn main() {
             OnExit(AppState::Loading),
             (
                 #[cfg(not(feature = "preprocess"))]
-                (
-                    car_spawn,
-                    terrain_spawn,
-                    boulders_spawn,
-                    custom_png_spawn,
-                ),
+                (car_spawn, terrain_spawn, boulders_spawn, custom_png_spawn),
                 #[cfg(feature = "preprocess")]
-                (
-                    car_spawn,
-                    terrain_spawn,
-                    boulders_spawn,
-                    custom_png_spawn,
-                ).after(load_images),
+                (car_spawn, terrain_spawn, boulders_spawn, custom_png_spawn).after(load_images),
                 camera_spawn,
                 #[cfg(feature = "preprocess")]
                 load_images,
@@ -263,17 +258,17 @@ pub fn check_assets(
     mut state: ResMut<NextState<AppState>>,
     mut run_next: Local<bool>,
 ) {
-
     #[cfg(feature = "preprocess")]
     {
         // Check if all colliders are loaded (which also loads the images as assets)
-        let colliders_loaded = game_assets.collider_handles
-            .values()
-            .all(|handle| asset_server.is_loaded_with_dependencies(handle) ||
-                if let Some(load_state) = asset_server.get_load_state(handle) {
+        let colliders_loaded = game_assets.collider_handles.values().all(|handle| {
+            asset_server.is_loaded_with_dependencies(handle)
+                || if let Some(load_state) = asset_server.get_load_state(handle) {
                     matches!(load_state, LoadState::Loaded)
-                } else { true }
-            );
+                } else {
+                    true
+                }
+        });
         if !colliders_loaded {
             return;
         }
@@ -286,13 +281,14 @@ pub fn check_assets(
     }
 
     // Check if all images are loaded (will be initially empty if pre-processed)
-    let all_images_loaded = game_assets.image_handles
-        .values()
-        .all(|handle| asset_server.is_loaded_with_dependencies(handle) ||
-            if let Some(load_state) = asset_server.get_load_state(handle) {
+    let all_images_loaded = game_assets.image_handles.values().all(|handle| {
+        asset_server.is_loaded_with_dependencies(handle)
+            || if let Some(load_state) = asset_server.get_load_state(handle) {
                 matches!(load_state, LoadState::Loaded)
-            } else { true }
-        );
+            } else {
+                true
+            }
+    });
 
     let font_load_state = asset_server.get_load_state(&game_assets.font_handle.clone());
     if all_images_loaded && font_load_state.is_some_and(|state| matches!(state, LoadState::Loaded))
@@ -301,11 +297,7 @@ pub fn check_assets(
     }
 }
 
-
-pub fn load_assets(
-    asset_server: Res<AssetServer>,
-    mut game_assets: ResMut<GameAsset>,
-) {
+pub fn load_assets(asset_server: Res<AssetServer>, mut game_assets: ResMut<GameAsset>) {
     game_assets.font_handle = asset_server.load("font/NotoSansMono-Bold.ttf");
     #[cfg(not(feature = "preprocess"))]
     {
@@ -320,9 +312,18 @@ pub fn load_assets(
     {
         game_assets.collider_handles = HashMap::from([
             ("car".into(), asset_server.load("sprite_with_meta/car.png")),
-            ("terrain".into(), asset_server.load("sprite_with_meta/terrain.png")),
-            ("boulders".into(), asset_server.load("sprite_with_meta/boulders.png")), // TODO: Multi-collider support
-            ("atlas".into(), asset_server.load("sprite_with_meta/atlas.png")),
+            (
+                "terrain".into(),
+                asset_server.load("sprite_with_meta/terrain.png"),
+            ),
+            (
+                "boulders".into(),
+                asset_server.load("sprite_with_meta/boulders.png"),
+            ), // TODO: Multi-collider support
+            (
+                "atlas".into(),
+                asset_server.load("sprite_with_meta/atlas.png"),
+            ),
         ]);
     }
     if let Some(png_path) = std::env::args().nth(1) {

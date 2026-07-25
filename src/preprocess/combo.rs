@@ -1,16 +1,14 @@
+#[cfg(feature = "plugin")]
+use crate::plugin::DynamicCollider;
+#[cfg(feature = "preprocess")]
+use crate::preprocess::asset_transform::ColliderProcessError;
+use crate::{abstract_collider::AbstractCollider, collider_type::ColliderType};
+#[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
+use avian2d::prelude::Collider;
 use bevy::{image::ImageLoaderSettings, prelude::*};
 #[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
 use bevy_rapier2d::prelude::Collider;
-#[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
-use avian2d::prelude::Collider;
-use serde::{Serialize, Deserialize};
-#[cfg(feature = "preprocess")]
-use crate::preprocess::asset_transform::ColliderProcessError;
-use crate::{
-    abstract_collider::AbstractCollider, collider_type::ColliderType,
-};
-#[cfg(feature = "plugin")]
-use crate::plugin::DynamicCollider;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, PartialEq, Reflect, Clone, Asset)]
 pub struct ImageWithCollider {
@@ -54,11 +52,10 @@ impl Default for ColliderSettings {
             collider_types: vec![ColliderType::Polyline],
             texture_atlas: None,
             image_settings: ImageLoaderSettings::default(),
-            path: String::default()
+            path: String::default(),
         }
     }
 }
-
 
 /// A user-generated [`Settings`] `struct` used when generating an [`AbstractCollider`] from an image or texture atlas source.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,7 +86,7 @@ impl Default for ColliderSettingsInit {
             texture_atlas: None,
             image_settings: None,
             multiple: false,
-            path: String::default()
+            path: String::default(),
         }
     }
 }
@@ -114,63 +111,85 @@ impl Default for CachedCollider {
 impl CachedCollider {
     #[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
     /// Clones this [`CachedCollider`] into a bevy_rapier [`Collider`].
-    /// 
+    ///
     /// Include an `atlas_index` if this is an atlas.
-    pub fn to_rapier(&self, atlas_index: Option<usize>) -> Result<Vec<Collider>, ColliderProcessError> {
-        let failed = ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
+    pub fn to_rapier(
+        &self,
+        atlas_index: Option<usize>,
+    ) -> Result<Vec<Collider>, ColliderProcessError> {
+        let failed =
+            ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
         Ok(match &self {
-            CachedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_rapier().ok_or(failed)?],
+            CachedCollider::Single(abstract_collider) => {
+                vec![abstract_collider.clone().to_rapier().ok_or(failed)?]
+            }
             CachedCollider::Multiple(abstract_colliders) => {
                 let mut colliders = vec![];
                 for (abstract_collider, _) in abstract_colliders.clone() {
                     colliders.push(abstract_collider.to_rapier().ok_or(failed.clone())?);
                 }
                 colliders
-            },
+            }
             CachedCollider::Atlas(collider_atlas) => {
                 if let Some(index) = atlas_index {
-                    vec![
-                        collider_atlas.0
-                            .get(index)
-                            .cloned()
-                            .flatten()
-                            .ok_or(ColliderProcessError("index out of bounds for collider atlas".into()))?
-                            .to_rapier()
-                            .ok_or(failed)?
-                    ]
-                } else { return Err(ColliderProcessError("failed to provide atlas_index for collider atlas".into())); }
-            },
+                    vec![collider_atlas
+                        .0
+                        .get(index)
+                        .cloned()
+                        .flatten()
+                        .ok_or(ColliderProcessError(
+                            "index out of bounds for collider atlas".into(),
+                        ))?
+                        .to_rapier()
+                        .ok_or(failed)?]
+                } else {
+                    return Err(ColliderProcessError(
+                        "failed to provide atlas_index for collider atlas".into(),
+                    ));
+                }
+            }
         })
     }
 
     #[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
     /// Clones this [`CachedCollider`] into an avian [`Collider`].
-    /// 
+    ///
     /// Include an `atlas_index` if this is an atlas.
-    pub fn to_avian(&self, atlas_index: Option<usize>) -> Result<Vec<Collider>, ColliderProcessError> {
-        let failed = ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
+    pub fn to_avian(
+        &self,
+        atlas_index: Option<usize>,
+    ) -> Result<Vec<Collider>, ColliderProcessError> {
+        let failed =
+            ColliderProcessError("failed to convert AbstractCollider into Rapier Collider".into());
         Ok(match &self {
-            CachedCollider::Single(abstract_collider) => vec![abstract_collider.clone().to_avian().ok_or(failed)?],
+            CachedCollider::Single(abstract_collider) => {
+                vec![abstract_collider.clone().to_avian().ok_or(failed)?]
+            }
             CachedCollider::Multiple(abstract_colliders) => {
                 let mut colliders = vec![];
                 for (abstract_collider, _) in abstract_colliders.clone() {
                     colliders.push(abstract_collider.to_avian().ok_or(failed.clone())?);
                 }
                 colliders
-            },
+            }
             CachedCollider::Atlas(collider_atlas) => {
                 if let Some(index) = atlas_index {
-                    vec![
-                        collider_atlas.0
-                            .get(index)
-                            .cloned()
-                            .flatten()
-                            .ok_or(ColliderProcessError("index out of bounds for collider atlas".into()))?
-                            .to_avian()
-                            .ok_or(failed)?
-                    ]
-                } else { return Err(ColliderProcessError("failed to provide atlas_index for collider atlas".into())); }
-            },
+                    vec![collider_atlas
+                        .0
+                        .get(index)
+                        .cloned()
+                        .flatten()
+                        .ok_or(ColliderProcessError(
+                            "index out of bounds for collider atlas".into(),
+                        ))?
+                        .to_avian()
+                        .ok_or(failed)?]
+                } else {
+                    return Err(ColliderProcessError(
+                        "failed to provide atlas_index for collider atlas".into(),
+                    ));
+                }
+            }
         })
     }
 }
@@ -186,10 +205,14 @@ impl TryFrom<CachedCollider> for DynamicCollider {
                 ..default()
             },
             CachedCollider::Multiple(_) => {
-                return Err(ColliderProcessError("multiple colliders cannot become one DynamicCollider".into()));
-            },
+                return Err(ColliderProcessError(
+                    "multiple colliders cannot become one DynamicCollider".into(),
+                ));
+            }
             CachedCollider::Atlas(collider_atlas) => Self {
-                collider_type: collider_atlas.0.iter()
+                collider_type: collider_atlas
+                    .0
+                    .iter()
                     .flatten()
                     .next()
                     .map(|item| item.clone().into())
@@ -201,13 +224,13 @@ impl TryFrom<CachedCollider> for DynamicCollider {
 }
 
 /// A `struct` containing [`AbstractCollider`]s in the same indices as its corresponding [`TextureAtlasLayout`].
-/// 
+///
 /// Index into this `struct` to get the [`AbstractCollider`] for the active [`Sprite`] image in a sprite sheet.
 #[derive(Debug, Reflect, PartialEq, Asset, Clone, Serialize, Deserialize)]
 pub struct ColliderAtlas(pub Vec<Option<AbstractCollider>>, pub TextureAtlasLayout);
 
 /// Contains compact data for initializing a [`TextureAtlasLayout`] `struct`.
-/// 
+///
 /// Adapted from `bevy_asset_loader`.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Asset, Reflect)]
 pub struct TextureAtlasLayoutInit {
@@ -239,8 +262,14 @@ impl From<TextureAtlasLayoutInit> for TextureAtlasLayout {
             UVec2::new(val.tile_size_x, val.tile_size_y),
             val.columns,
             val.rows,
-            Some(UVec2::new(val.padding_x.unwrap_or(0), val.padding_y.unwrap_or(0))),
-            Some(UVec2::new(val.offset_x.unwrap_or(0), val.offset_y.unwrap_or(0))),
+            Some(UVec2::new(
+                val.padding_x.unwrap_or(0),
+                val.padding_y.unwrap_or(0),
+            )),
+            Some(UVec2::new(
+                val.offset_x.unwrap_or(0),
+                val.offset_y.unwrap_or(0),
+            )),
         )
     }
 }

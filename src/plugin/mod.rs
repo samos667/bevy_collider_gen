@@ -52,7 +52,9 @@ fn assets_loaded(
                 // If there's no load state, that means the [`Image`] has been manually added (& thus is loaded already)
                 if let Some(load_state) = asset_server.get_load_state(handle) {
                     matches!(load_state, LoadState::Loaded)
-                } else { true }
+                } else {
+                    true
+                }
             })
         })
 }

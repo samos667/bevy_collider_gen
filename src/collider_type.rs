@@ -1,13 +1,13 @@
-#[cfg(feature="preprocess")]
+#[cfg(feature = "preprocess")]
 use bevy::prelude::*;
-#[cfg(feature="preprocess")]
-use serde::{Serialize,Deserialize};
+#[cfg(feature = "preprocess")]
+use serde::{Deserialize, Serialize};
 
 use crate::abstract_collider::AbstractCollider;
 
 /// An enumeration representing the different types of colliders that can be created.
 #[derive(Clone, Copy, Debug, Default, Hash)]
-#[cfg_attr(feature="preprocess", derive(Asset, Reflect, Serialize, Deserialize))]
+#[cfg_attr(feature = "preprocess", derive(Asset, Reflect, Serialize, Deserialize))]
 pub enum ColliderType {
     #[default]
     Polyline,

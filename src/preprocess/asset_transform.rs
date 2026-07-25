@@ -1,14 +1,25 @@
-use bevy::{asset::{
-    AssetLoader,
-    AsyncWriteExt,
-    LoadContext,
-    io::{Reader, Writer},
-    saver::{AssetSaver, SavedAsset},
-}, image::{CompressedImageFormats, ImageArrayLayout, ImageFormatSetting, ImageLoaderSettings, ImageType}, prelude::*, render::render_resource::TextureFormat};
-use image::ExtendedColorType;
-use ron::{Error, ser::PrettyConfig};
 use crate::preprocess::{
-        collider_gen::collider_from_image, combo::{ImageWithCollider, ImageWithColliderFile, ColliderSettings, ColliderSettingsInit, CachedCollider}};
+    collider_gen::collider_from_image,
+    combo::{
+        CachedCollider, ColliderSettings, ColliderSettingsInit, ImageWithCollider,
+        ImageWithColliderFile,
+    },
+};
+use bevy::{
+    asset::{
+        io::{Reader, Writer},
+        saver::{AssetSaver, SavedAsset},
+        AssetLoader, AsyncWriteExt, LoadContext,
+    },
+    image::{
+        CompressedImageFormats, ImageArrayLayout, ImageFormatSetting, ImageLoaderSettings,
+        ImageType,
+    },
+    prelude::*,
+    render::render_resource::TextureFormat,
+};
+use image::ExtendedColorType;
+use ron::{ser::PrettyConfig, Error};
 
 /// An [`AssetLoader`] that transforms an [`Image`] into an [`AbstractCollider`], loading both as assets.
 #[derive(Debug, Default, Reflect)]
@@ -26,19 +37,26 @@ impl AssetLoader for ImageToCollider {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let source = bevy::image::ImageLoader::new(default())
-            .load(reader, &bevy::image::ImageLoaderSettings::default(), load_context).await;
+            .load(
+                reader,
+                &bevy::image::ImageLoaderSettings::default(),
+                load_context,
+            )
+            .await;
         let image = source.map_err(|e| ColliderProcessError(e.to_string()))?;
         let collider = collider_from_image(&image, &settings);
         let path = load_context
             .path()
             .path()
             .to_str()
-            .ok_or(ColliderProcessError("failed to convert file path to unicode".into()))?
+            .ok_or(ColliderProcessError(
+                "failed to convert file path to unicode".into(),
+            ))?
             .to_owned();
         Ok(ImageWithCollider {
             collider: collider?,
             source: image,
-            path
+            path,
         })
     }
 }
@@ -52,7 +70,7 @@ impl AssetLoader for ColliderLoader {
     type Settings = ColliderSettings;
     type Error = Error;
 
-     async fn load(
+    async fn load(
         &self,
         reader: &mut dyn Reader,
         settings: &Self::Settings,
@@ -61,14 +79,21 @@ impl AssetLoader for ColliderLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let mut file = ron::de::from_bytes::<ImageWithColliderFile>(&bytes)?;
-        let source = Self::load_image(&mut file.source, &settings.image_settings, load_context).map_err(|e| Error::Message(e.to_string()))?;
+        let source = Self::load_image(&mut file.source, &settings.image_settings, load_context)
+            .map_err(|e| Error::Message(e.to_string()))?;
         let path = load_context
             .path()
             .path()
             .to_str()
-            .ok_or(Error::Message("failed to convert file path to unicode".into()))?
+            .ok_or(Error::Message(
+                "failed to convert file path to unicode".into(),
+            ))?
             .to_owned();
-        Ok(ImageWithCollider { collider: file.collider, source, path })
+        Ok(ImageWithCollider {
+            collider: file.collider,
+            source,
+            path,
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -78,9 +103,13 @@ impl AssetLoader for ColliderLoader {
 
 impl ColliderLoader {
     /// A copy of `bevy_image`'s [`AssetLoader`] `load` function, but without certain features due to private `struct`s.
-    /// 
+    ///
     /// TODO: After Bevy 0.19 update, save [`Image`] separately to allow more versatility for users (& save file space)
-    fn load_image(bytes: &mut Vec<u8>, settings: &ImageLoaderSettings, load_context: &mut LoadContext<'_>) -> Result<Image, ColliderProcessError> {
+    fn load_image(
+        bytes: &mut Vec<u8>,
+        settings: &ImageLoaderSettings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Image, ColliderProcessError> {
         // use the file extension for the image type
         let ext = load_context
             .path()
@@ -88,16 +117,20 @@ impl ColliderLoader {
             .extension()
             .ok_or(ColliderProcessError("image has no file extension".into()))?
             .to_str()
-            .ok_or(ColliderProcessError("image file extension is not unicode".into()))?;
+            .ok_or(ColliderProcessError(
+                "image file extension is not unicode".into(),
+            ))?;
         Self::image_from_bytes(ext, bytes, settings)
     }
 
-    fn image_from_bytes(ext: &str, bytes: &mut Vec<u8>, settings: &ImageLoaderSettings) -> Result<Image, ColliderProcessError> {
+    fn image_from_bytes(
+        ext: &str,
+        bytes: &mut Vec<u8>,
+        settings: &ImageLoaderSettings,
+    ) -> Result<Image, ColliderProcessError> {
         let image_type = match settings.format {
             // Due to private fields, matching by extension is all that is supported here
-            _ => {
-                ImageType::Extension(ext)
-            }
+            _ => ImageType::Extension(ext),
         };
         let mut image = Image::from_buffer(
             &bytes,
@@ -119,7 +152,9 @@ impl ColliderLoader {
                 ImageArrayLayout::RowHeight { pixels } => image.height() / pixels,
             };
 
-            image.reinterpret_stacked_2d_as_array(layers).map_err(|e| ColliderProcessError(e.to_string()))?;
+            image
+                .reinterpret_stacked_2d_as_array(layers)
+                .map_err(|e| ColliderProcessError(e.to_string()))?;
         }
 
         Ok(image)
@@ -142,16 +177,16 @@ impl AssetSaver for ColliderSaver {
         _settings: &Self::Settings,
     ) -> Result<ColliderSettings, Self::Error> {
         let image_ref = &asset.get().source;
-        let (image_raw, load_settings) = Self::image_to_bytes(
-            image_ref,
-            default(),
-            "png",
-        ).map_err(|e| Error::Message(e.to_string()))?;
+        let (image_raw, load_settings) = Self::image_to_bytes(image_ref, default(), "png")
+            .map_err(|e| Error::Message(e.to_string()))?;
         let collider_combo_file = ImageWithColliderFile {
             collider: asset.get().collider.clone(),
             source: image_raw,
         };
-        let file_ron = ron::ser::to_string_pretty(&collider_combo_file, PrettyConfig::default().compact_arrays(true))?;
+        let file_ron = ron::ser::to_string_pretty(
+            &collider_combo_file,
+            PrettyConfig::default().compact_arrays(true),
+        )?;
         writer.write_all(&file_ron.into_bytes()).await?;
         Ok(ColliderSettings {
             collider_types: vec![], // TODO: Get these from collider
@@ -160,7 +195,9 @@ impl AssetSaver for ColliderSaver {
                 _ => None,
             } {
                 Some(atlas)
-            } else { None },
+            } else {
+                None
+            },
             image_settings: load_settings,
             path: asset.get().path.clone(),
         })
@@ -169,15 +206,17 @@ impl AssetSaver for ColliderSaver {
 
 impl ColliderSaver {
     /// Saves the provided [`Image`] according to its [`ImageSaverSettings`].
-    /// 
+    ///
     /// Code from `bevy_image`'s [`ImageSaver`] function.
-    fn image_to_bytes(asset: &Image, settings: ImageSaverSettings, extension: &str) -> Result<(Vec<u8>, ImageLoaderSettings), ColliderProcessError> {
+    fn image_to_bytes(
+        asset: &Image,
+        settings: ImageSaverSettings,
+        extension: &str,
+    ) -> Result<(Vec<u8>, ImageLoaderSettings), ColliderProcessError> {
         let format = match settings.format {
             SaveImageFormatSetting::Format(format) => format,
-            SaveImageFormatSetting::FromExtension => {
-                ImageFormat::from_extension(extension)
-                    .ok_or_else(|| ColliderProcessError("unknown extension".into()))?
-            },
+            SaveImageFormatSetting::FromExtension => ImageFormat::from_extension(extension)
+                .ok_or_else(|| ColliderProcessError("unknown extension".into()))?,
         };
 
         let Some(_asset_data) = asset.data.as_ref() else {
@@ -194,9 +233,7 @@ impl ColliderSaver {
                 TextureFormat::Rgba8UnormSrgb => {
                     (image::ImageFormat::Png, ExtendedColorType::Rgba8, true)
                 }
-                _ => {
-                    return Err(ColliderProcessError("unsupported texture format".into()))
-                }
+                _ => return Err(ColliderProcessError("unsupported texture format".into())),
             },
             _ => return Err(ColliderProcessError("unsupported format".into())),
         };
@@ -209,7 +246,8 @@ impl ColliderSaver {
             asset.height(),
             color_type,
             image_crate_format,
-        ).map_err(|e| ColliderProcessError(e.to_string()))?;
+        )
+        .map_err(|e| ColliderProcessError(e.to_string()))?;
 
         Ok((
             bytes.to_vec(),
@@ -239,7 +277,6 @@ impl std::fmt::Display for ColliderProcessError {
 
 impl std::error::Error for ColliderProcessError {}
 
-
 #[derive(Default, Debug, Clone)]
 /// Settings for how to save an image.
 pub struct ImageSaverSettings {
@@ -256,20 +293,26 @@ pub enum SaveImageFormatSetting {
     Format(ImageFormat),
 }
 
-
 #[allow(unused_imports)]
 mod test {
-    use std::io::Read;
-    use bevy::asset::{meta::AssetMeta, processor::LoadTransformAndSave, transformer::IdentityAssetTransformer};
     use super::*;
+    use bevy::asset::{
+        meta::AssetMeta, processor::LoadTransformAndSave, transformer::IdentityAssetTransformer,
+    };
+    use std::io::Read;
 
     /// Tests that Bevy [`Image`]s can be converted to and from the `image` crate structs across Bevy versions.
     #[test]
     fn image_convert_test() -> Result<(), ColliderProcessError> {
         let file = std::fs::File::open("assets/sprite/car.png").expect("image file to exist");
         let buffered_file = std::io::BufReader::new(file);
-        let test_image = Image::from_dynamic(image::load(buffered_file, image::ImageFormat::Png).expect("original image loads"), true, default());
-        let (mut raw_image, settings) = ColliderSaver::image_to_bytes(&test_image, default(), "png")?;
+        let test_image = Image::from_dynamic(
+            image::load(buffered_file, image::ImageFormat::Png).expect("original image loads"),
+            true,
+            default(),
+        );
+        let (mut raw_image, settings) =
+            ColliderSaver::image_to_bytes(&test_image, default(), "png")?;
         let reloaded_image = ColliderLoader::image_from_bytes("png", &mut raw_image, &settings)?;
         assert_eq!(test_image, reloaded_image);
         Ok(())
@@ -280,13 +323,15 @@ mod test {
     fn image_load_test() -> Result<(), ColliderProcessError> {
         let file = std::fs::File::open("assets/sprite/car.png").expect("image file to exist");
         let buffered_file = std::io::BufReader::new(file);
-        let original_image = image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
+        let original_image =
+            image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
         let bevy_image = Image::from_dynamic(original_image, true, default());
         let mut file = std::fs::File::open("assets/sprite/car.png").expect("image file to exist");
         // let buffered_file = std::io::BufReader::new(file);
         let mut bytes = vec![];
         std::io::Read::read_to_end(&mut file, &mut bytes).expect("can read file");
-        let loaded_image = ColliderLoader::image_from_bytes("png", &mut bytes, &default()).expect("image loads with crate");
+        let loaded_image = ColliderLoader::image_from_bytes("png", &mut bytes, &default())
+            .expect("image loads with crate");
         assert_eq!(bevy_image, loaded_image);
         Ok(())
     }
@@ -296,17 +341,25 @@ mod test {
     fn image_serialize_test() -> Result<(), ColliderProcessError> {
         let file = std::fs::File::open("assets/sprite/car.png").expect("image file to exist");
         let buffered_file = std::io::BufReader::new(file);
-        let original_image = image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
+        let original_image =
+            image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
         let bevy_image = Image::from_dynamic(original_image, true, default());
-        let (mut bytes, settings) = ColliderSaver::image_to_bytes(&bevy_image, default(), "png").expect("image to become bytes");
-        let reloaded_image = ColliderLoader::image_from_bytes("png", &mut bytes, &settings).expect("image to reload");
+        let (mut bytes, settings) = ColliderSaver::image_to_bytes(&bevy_image, default(), "png")
+            .expect("image to become bytes");
+        let reloaded_image = ColliderLoader::image_from_bytes("png", &mut bytes, &settings)
+            .expect("image to reload");
         let combo = ImageWithColliderFile {
             collider: default(),
-            source: bytes
+            source: bytes,
         };
-        let serialized = ron::ser::to_string_pretty(&combo, PrettyConfig::default().compact_arrays(true)).expect("combo file serializes");
-        let mut deserialized: ImageWithColliderFile = ron::de::from_str(&serialized).expect("deserializes");
-        let reworked_image = ColliderLoader::image_from_bytes("png", &mut deserialized.source, &settings).expect("image to rework");
+        let serialized =
+            ron::ser::to_string_pretty(&combo, PrettyConfig::default().compact_arrays(true))
+                .expect("combo file serializes");
+        let mut deserialized: ImageWithColliderFile =
+            ron::de::from_str(&serialized).expect("deserializes");
+        let reworked_image =
+            ColliderLoader::image_from_bytes("png", &mut deserialized.source, &settings)
+                .expect("image to rework");
         assert_eq!(reworked_image, reloaded_image);
         assert_eq!(reloaded_image, bevy_image);
         Ok(())
@@ -316,31 +369,52 @@ mod test {
     #[test]
     fn imported_asset_verification() -> Result<(), ColliderProcessError> {
         // Load original version
-        let file = std::fs::File::open("assets/sprite_with_meta/car.png").expect("image file to exist");
+        let file =
+            std::fs::File::open("assets/sprite_with_meta/car.png").expect("image file to exist");
         let buffered_file = std::io::BufReader::new(file);
-        let dynamic_image = image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
+        let dynamic_image =
+            image::load(buffered_file, image::ImageFormat::Png).expect("original image loads");
         let bevy_image = Image::from_dynamic(dynamic_image, true, default());
 
         // Load processed version
-        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png").expect("image file to exist");
+        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png")
+            .expect("image file to exist");
         let mut buffered_file = std::io::BufReader::new(file);
         let mut serialized = String::new();
-        buffered_file.read_to_string(&mut serialized).expect("buffered file reads");
-        let mut collider_combo: ImageWithColliderFile = ron::de::from_str(&serialized).expect("combo deserializes");
+        buffered_file
+            .read_to_string(&mut serialized)
+            .expect("buffered file reads");
+        let mut collider_combo: ImageWithColliderFile =
+            ron::de::from_str(&serialized).expect("combo deserializes");
 
         // Load settings
-        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png.meta").expect("image file to exist");
+        let file = std::fs::File::open("imported_assets/Default/sprite_with_meta/car.png.meta")
+            .expect("image file to exist");
         let mut buffered_file = std::io::BufReader::new(file);
         let mut serialized = String::new();
-        buffered_file.read_to_string(&mut serialized).expect("buffered file reads");
-        let collider_meta: AssetMeta::<ColliderLoader, LoadTransformAndSave<ImageToCollider, IdentityAssetTransformer<ImageWithCollider>, ColliderSaver>> = ron::de::from_str(&serialized).expect("settings deserialize");
+        buffered_file
+            .read_to_string(&mut serialized)
+            .expect("buffered file reads");
+        let collider_meta: AssetMeta<
+            ColliderLoader,
+            LoadTransformAndSave<
+                ImageToCollider,
+                IdentityAssetTransformer<ImageWithCollider>,
+                ColliderSaver,
+            >,
+        > = ron::de::from_str(&serialized).expect("settings deserialize");
         let collider_settings = match collider_meta.asset {
             bevy::asset::meta::AssetAction::Load { settings, .. } => settings,
             _ => panic!("incorrect asset action"),
         };
 
         // Check if equal
-        let processed_image = ColliderLoader::image_from_bytes("png", &mut collider_combo.source, &collider_settings.image_settings).expect("image generates from bytes");
+        let processed_image = ColliderLoader::image_from_bytes(
+            "png",
+            &mut collider_combo.source,
+            &collider_settings.image_settings,
+        )
+        .expect("image generates from bytes");
         assert_eq!(bevy_image, processed_image);
         Ok(())
     }
