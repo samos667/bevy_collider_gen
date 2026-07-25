@@ -220,12 +220,8 @@ impl ColliderSaver {
         let (image_crate_format, color_type, is_srgb): (_, ExtendedColorType, _) = match format {
             ImageFormat::Png => match asset.texture_descriptor.format {
                 TextureFormat::R8Unorm => (ImageFormat::Png, ExtendedColorType::L8, false),
-                TextureFormat::Rgba8Unorm => {
-                    (ImageFormat::Png, ExtendedColorType::Rgba8, false)
-                }
-                TextureFormat::Rgba8UnormSrgb => {
-                    (ImageFormat::Png, ExtendedColorType::Rgba8, true)
-                }
+                TextureFormat::Rgba8Unorm => (ImageFormat::Png, ExtendedColorType::Rgba8, false),
+                TextureFormat::Rgba8UnormSrgb => (ImageFormat::Png, ExtendedColorType::Rgba8, true),
                 _ => return Err(ColliderProcessError("unsupported texture format".into())),
             },
             _ => return Err(ColliderProcessError("unsupported format".into())),
