@@ -18,7 +18,7 @@ use bevy::{
     prelude::*,
     render::render_resource::TextureFormat,
 };
-use image::ExtendedColorType;
+use image::{ExtendedColorType, ImageFormat};
 use ron::{ser::PrettyConfig, Error};
 
 /// An [`AssetLoader`] that transforms an [`Image`] into an [`AbstractCollider`], loading both as assets.
@@ -219,12 +219,12 @@ impl ColliderSaver {
         // TODO: Consider supporting more formats here!
         let (image_crate_format, color_type, is_srgb): (_, ExtendedColorType, _) = match format {
             ImageFormat::Png => match asset.texture_descriptor.format {
-                TextureFormat::R8Unorm => (image::ImageFormat::Png, ExtendedColorType::L8, false),
+                TextureFormat::R8Unorm => (ImageFormat::Png, ExtendedColorType::L8, false),
                 TextureFormat::Rgba8Unorm => {
-                    (image::ImageFormat::Png, ExtendedColorType::Rgba8, false)
+                    (ImageFormat::Png, ExtendedColorType::Rgba8, false)
                 }
                 TextureFormat::Rgba8UnormSrgb => {
-                    (image::ImageFormat::Png, ExtendedColorType::Rgba8, true)
+                    (ImageFormat::Png, ExtendedColorType::Rgba8, true)
                 }
                 _ => return Err(ColliderProcessError("unsupported texture format".into())),
             },
@@ -245,7 +245,7 @@ impl ColliderSaver {
         Ok((
             bytes.clone(),
             ImageLoaderSettings {
-                format: ImageFormatSetting::Format(format),
+                format: ImageFormatSetting::Format(bevy::image::ImageFormat::Png),
                 // Passing in the original texture format breaks things. For example, PNG will save R8
                 // data as RGBA8 data: if we later try to load as R8, we get 4 times as many pixels!
                 texture_format: None,

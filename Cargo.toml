@@ -25,12 +25,12 @@ avian2d = ["dep:avian2d"]
 rapier2d = ["dep:bevy_rapier2d"]
 parallel = ["edges/parallel"]
 plugin = ["bevy/bevy_sprite", "bevy/bevy_asset", "bevy/bevy_log"]
-preprocess = ["dep:serde", "dep:ron", "bevy/bevy_sprite", "bevy/bevy_asset", "bevy/asset_processor"]
+preprocess = ["dep:serde", "dep:ron", "bevy/bevy_sprite", "bevy/bevy_asset", "bevy/asset_processor", "bevy/bevy_render"]
 
 [dependencies]
 image = { version = "0.25", default-features = false }
 edges = "0.9"
-bevy = { version = "0.18", default-features = false, features = ["bevy_image", "serialize"] }
+bevy = { version = "0.18", default-features = false, features = ["bevy_image", "png", "serialize"] }
 
 [dependencies.bevy_rapier2d]
 version = "0.34"
