@@ -115,7 +115,7 @@ fn boulders_spawn(
         .convex_polyline();
     let polygons = EdgesIter::new(builder.image());
 
-    for (index, (polygon, collider)) in polygons.zip(builder.multiple().into_iter()).enumerate() {
+    for (index, (polygon, collider)) in polygons.zip(builder.multiple()).enumerate() {
         let points = collider.points().unwrap().clone();
         let pos = polygon.first().unwrap().as_vec2()
             - points.first().unwrap()
@@ -397,10 +397,8 @@ pub fn camera_movement(
                         transform.scale -= 0.01;
                     }
                 }
-                KeyCode::KeyS => {
-                    if transform.scale.x < f32::MAX && transform.scale.y < f32::MAX {
-                        transform.scale += 0.01;
-                    }
+                KeyCode::KeyS if transform.scale.x < f32::MAX && transform.scale.y < f32::MAX => {
+                    transform.scale += 0.01;
                 }
                 _ => {}
             }

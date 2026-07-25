@@ -1,7 +1,4 @@
-use avian2d::{
-    parry::{math::Vector, shape::SharedShape},
-    prelude::Collider,
-};
+use avian2d::{parry::shape::SharedShape, prelude::Collider};
 
 use super::AbstractCollider;
 use super::AbstractCollider::{ConvexHull, ConvexPolyline, Heightfield, Polyline};
@@ -18,8 +15,7 @@ impl From<AbstractCollider> for Option<Collider> {
         match value {
             Polyline(vertices) => Some(Collider::polyline(vertices, None)),
             ConvexPolyline(points) => {
-                SharedShape::convex_polyline(points.into_iter().map(Vector::from).collect())
-                    .map(Collider::from)
+                SharedShape::convex_polyline(points.into_iter().collect()).map(Collider::from)
             }
             ConvexHull(points) => Collider::convex_hull(points),
             Heightfield(heights, scale) => Some(Collider::heightfield(heights, scale)),

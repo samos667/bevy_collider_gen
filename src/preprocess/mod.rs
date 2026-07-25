@@ -49,6 +49,7 @@ impl Plugin for PreloadColliderPlugin {
 }
 
 impl PreloadColliderPlugin {
+    #[must_use]
     pub fn without_default_asset_processor(self) -> Self {
         Self {
             set_default_for_png: false,
@@ -92,9 +93,8 @@ pub fn init_assets(
                         path
                     );
                     return None;
-                } else {
-                    processed.insert(path.clone());
                 }
+                processed.insert(path.clone());
 
                 let collider_handle = colliders.add(collider);
                 let image_handle = images.add(source);
@@ -106,7 +106,7 @@ pub fn init_assets(
         .collect::<Vec<(LoadedCollider, Name)>>();
 
     // Spawn the new loaded images
-    loaded_images.into_iter().for_each(|(loaded_image, name)| {
+    for (loaded_image, name) in loaded_images {
         commands.spawn((loaded_image, name));
-    });
+    }
 }

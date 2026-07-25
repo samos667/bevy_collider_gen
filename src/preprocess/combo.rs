@@ -110,9 +110,13 @@ impl Default for CachedCollider {
 
 impl CachedCollider {
     #[cfg(all(feature = "rapier2d", not(feature = "avian2d")))]
-    /// Clones this [`CachedCollider`] into a bevy_rapier [`Collider`].
+    /// Clones this [`CachedCollider`] into a `bevy_rapier` [`Collider`].
     ///
     /// Include an `atlas_index` if this is an atlas.
+    ///
+    /// # Errors
+    /// Returns an error if the collider contains invalid data,
+    /// or cannot convert to the underlying physics collider type.
     pub fn to_rapier(
         &self,
         atlas_index: Option<usize>,
@@ -152,9 +156,13 @@ impl CachedCollider {
     }
 
     #[cfg(all(feature = "avian2d", not(feature = "rapier2d")))]
-    /// Clones this [`CachedCollider`] into an avian [`Collider`].
+    /// Clones this [`CachedCollider`] into an `avian` [`Collider`].
     ///
     /// Include an `atlas_index` if this is an atlas.
+    ///
+    /// # Errors
+    /// Returns an error if the collider contains invalid data,
+    /// or cannot convert to the underlying physics collider type.
     pub fn to_avian(
         &self,
         atlas_index: Option<usize>,
@@ -215,8 +223,7 @@ impl TryFrom<CachedCollider> for DynamicCollider {
                     .iter()
                     .flatten()
                     .next()
-                    .map(|item| item.clone().into())
-                    .unwrap_or(default()),
+                    .map_or(default(), |item| item.clone().into()),
                 ..default()
             },
         })

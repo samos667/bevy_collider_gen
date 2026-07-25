@@ -16,6 +16,7 @@ type Filter<TargetCollider> = Or<(
     Changed<DynamicCollider>,
 )>;
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 /// Updates the physics colliders using change detection.
 pub fn update_colliders<TargetCollider>(
     mut commands: Commands,
@@ -41,7 +42,7 @@ pub fn update_colliders<TargetCollider>(
 
         // Change detection for a [`Sprite`]'s source [`Image`] & [`TextureAtlas`] index
         let image_changed = changed_images.get(entity).is_ok();
-        let atlas_changed = changed_atlases.get(entity).is_ok() || !sprite.is_some();
+        let atlas_changed = changed_atlases.get(entity).is_ok() || sprite.is_none();
         if !(image_changed || atlas_changed) {
             #[cfg(debug_assertions)]
             bevy::log::info!(
@@ -52,50 +53,13 @@ pub fn update_colliders<TargetCollider>(
         }
 
         if let Some(handle) = handle {
-            #[cfg(feature = "preprocess")]
-            // Find a [`CachedCollider`] for the [`Image`]
-            let cached_collider = if let Some(collider) =
-                saved_query
-                    .iter()
-                    .find_map(|LoadedCollider(image_handle, collider_handle)| {
-                        if handle == *image_handle {
-                            cached_colliders.get(collider_handle)
-                        } else {
-                            None
-                        }
-                    }) {
-                // Use the [`CachedCollider`] instead of generating a new one
-                let collider: (Option<TargetCollider>, Option<Vec2>) = match collider {
-                    CachedCollider::Single(abstract_collider) => {
-                        (abstract_collider.clone().into(), None)
-                    }
-                    CachedCollider::Multiple(colliders) => {
-                        let collider_and_pos = dynamic_collider
-                            .multiple_index
-                            .and_then(|index| colliders.get(index))
-                            .map(|(collider, offset)| (collider.clone().into(), Some(*offset)));
-                        if let Some(collider_and_pos) = collider_and_pos {
-                            collider_and_pos
-                        } else {
-                            (None, None)
-                        }
-                    }
-                    CachedCollider::Atlas(collider_atlas) => {
-                        let collider = atlas
-                            .as_ref()
-                            .and_then(|atlas| Some(atlas.index))
-                            .and_then(|atlas_position| {
-                                collider_atlas.0.get(atlas_position).cloned()
-                            })
-                            .flatten()
-                            .and_then(|collider| collider.into());
-                        (collider, None)
-                    }
-                };
-                collider
-            } else {
-                (None, None)
-            };
+            let cached_collider = find_collider(
+                &handle,
+                &saved_query,
+                &cached_colliders,
+                dynamic_collider,
+                atlas.as_ref(),
+            );
 
             #[cfg(feature = "preprocess")]
             // Use the saved collider as long as the underlying [`Image`] asset hasn't been modified
@@ -112,7 +76,7 @@ pub fn update_colliders<TargetCollider>(
                     );
                 }
             }
-            let unchanged = changes.get(&entity).is_some_and(|old_sprite| {
+            let sprite_unchanged = changes.get(&entity).is_some_and(|old_sprite| {
                 sprite.is_some_and(|new_sprite| {
                     old_sprite.flip_x == new_sprite.flip_x
                         && old_sprite.flip_y == new_sprite.flip_y
@@ -123,18 +87,16 @@ pub fn update_colliders<TargetCollider>(
                         && old_sprite.rect == new_sprite.rect
                 })
             });
-            let changed = if !unchanged {
-                if let Some(sprite) = sprite {
-                    changes.insert(entity, sprite.clone());
-                    true
-                } else {
-                    false
-                }
+            let sprite_changed = if sprite_unchanged {
+                false
+            } else if let Some(sprite) = sprite {
+                changes.insert(entity, sprite.clone());
+                true
             } else {
                 false
             };
             let spawned = if let Some(collider) = cached_collider.0 {
-                if !image_changed && !changed {
+                if !image_changed && !sprite_changed {
                     let Ok(mut target) = commands.get_entity(entity) else {
                         continue;
                     };
@@ -158,7 +120,7 @@ pub fn update_colliders<TargetCollider>(
                             if let Some(layout) = layouts.get(&atlas.layout) {
                                 // if let Ok(image) = processed_image {
                                 let mut colliders = vec![];
-                                for urect in layout.textures.iter() {
+                                for urect in &layout.textures {
                                     // Get a cropped view into the original image and calculate the collider generation from it
                                     let sub_image = process_image(
                                         binary_image.clone(),
@@ -245,16 +207,16 @@ pub fn update_colliders<TargetCollider>(
                             let image_height = builder.image().height();
                             let polygons = edges::EdgesIter::new(builder.image());
                             let colliders = polygons
-                                .zip(builder.multiple().into_iter())
-                                .map(|(polygon, collider)| {
-                                    let points = collider.points().unwrap().clone();
-                                    let pos = polygon.first().unwrap().as_vec2()
-                                        - points.first().unwrap()
+                                .zip(builder.multiple())
+                                .filter_map(|(polygon, collider)| {
+                                    let points = collider.points()?.clone();
+                                    let pos = polygon.first()?.as_vec2()
+                                        - points.first()?
                                         - Vec2::new(
                                             (image_width / 2) as f32,
                                             (image_height / 2) as f32,
                                         );
-                                    (collider, pos)
+                                    Some((collider, pos))
                                 })
                                 .collect::<Vec<(AbstractCollider, Vec2)>>();
 
@@ -385,5 +347,55 @@ pub fn update_colliders<TargetCollider>(
         } else {
             error!("Failed to retrieve image handle for entity {:?}", entity);
         }
+    }
+}
+
+#[cfg(feature = "preprocess")]
+fn find_collider<TargetCollider>(
+    handle: &Handle<Image>,
+    saved_query: &Query<&LoadedCollider>,
+    cached_colliders: &Assets<CachedCollider>,
+    dynamic_collider: &DynamicCollider,
+    atlas: Option<&TextureAtlas>,
+) -> (Option<TargetCollider>, Option<Vec2>)
+where
+    AbstractCollider: Into<Option<TargetCollider>>,
+    TargetCollider: Component,
+{
+    // Find a [`CachedCollider`] for the [`Image`]
+    if let Some(collider) =
+        saved_query
+            .iter()
+            .find_map(|LoadedCollider(image_handle, collider_handle)| {
+                if *handle == *image_handle {
+                    cached_colliders.get(collider_handle)
+                } else {
+                    None
+                }
+            })
+    {
+        // Use the [`CachedCollider`] instead of generating a new one
+        let collider: (Option<TargetCollider>, Option<Vec2>) = match collider {
+            CachedCollider::Single(abstract_collider) => (abstract_collider.clone().into(), None),
+            CachedCollider::Multiple(colliders) => {
+                let collider_and_pos = dynamic_collider
+                    .multiple_index
+                    .and_then(|index| colliders.get(index))
+                    .map(|(collider, offset)| (collider.clone().into(), Some(*offset)));
+                collider_and_pos.unwrap_or_default()
+            }
+            CachedCollider::Atlas(collider_atlas) => {
+                let collider = atlas
+                    .as_ref()
+                    .map(|atlas| atlas.index)
+                    .and_then(|atlas_position| collider_atlas.0.get(atlas_position).cloned())
+                    .flatten()
+                    .and_then(std::convert::Into::into);
+                (collider, None)
+            }
+        };
+        collider
+    } else {
+        (None, None)
     }
 }

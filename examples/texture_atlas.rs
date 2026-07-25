@@ -2,7 +2,7 @@
 //! Demonstrates regenerating a `DynamicCollider` when a `TextureAtlas` frame changes.
 //!
 //! Physics backend is selected by feature flag:
-//! - default / `rapier2d`: bevy_rapier2d
+//! - default / `rapier2d`: `bevy_rapier2d`
 //! - `avian2d`: avian2d (wins if both features are enabled)
 //!
 //! Controls: ← → (previous / next atlas frame)
@@ -58,7 +58,7 @@ fn main() {
         app.add_plugins((
             PhysicsPlugins::default(),
             #[cfg(debug_assertions)]
-            PhysicsDebugPlugin::default(),
+            PhysicsDebugPlugin,
             DynamicColliderPlugin::<Collider>::new(),
         ));
     }
