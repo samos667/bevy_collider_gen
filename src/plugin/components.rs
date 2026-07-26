@@ -10,6 +10,7 @@ pub struct DynamicCollider {
     pub custom_size: Option<Vec2>,
     pub rect: Option<Rect>,
     pub anchor: Anchor,
+    pub multiple_index: Option<usize>,
 }
 
 impl DynamicCollider {

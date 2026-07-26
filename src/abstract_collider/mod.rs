@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 pub use builder::Builder as AbstractCollidersBuilder;
 
+#[cfg(feature = "preprocess")]
+use serde::{Deserialize, Serialize};
 use AbstractCollider::{ConvexHull, ConvexPolyline, Heightfield, Polyline};
 
 #[cfg(feature = "avian2d")]
@@ -13,6 +15,7 @@ mod builder;
 
 /// An enumeration representing different types of abstract colliders.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "preprocess", derive(Asset, Reflect, Serialize, Deserialize))]
 pub enum AbstractCollider {
     Polyline(Vec<Vec2>),
     ConvexPolyline(Vec<Vec2>),

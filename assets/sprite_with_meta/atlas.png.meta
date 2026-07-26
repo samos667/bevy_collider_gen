@@ -1,0 +1,24 @@
+(
+    meta_format_version: "1.0",
+    asset: Process (
+        processor: "LoadTransformAndSave<ImageToCollider, IdentityAssetTransformer<ImageWithCollider>, ColliderSaver>",
+        settings: (
+            loader_settings: (
+                // Override the default collider type for each sprite in the atlas; if you only set 1 it gets applied to all
+                collider_types: [
+                    Some(ConvexPolyline),
+                ],
+                // Texture atlases are defined similarly to the TextureAtlas::from_grid function
+                texture_atlas: Some((
+                    tile_size_x: 16,
+                    tile_size_y: 16,
+                    columns: 2,
+                    rows: 2,
+                )),
+                path: "sprite/atlas.png",
+            ),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)

@@ -20,11 +20,12 @@ needless_pass_by_value = { level = "allow", priority = 1 }
 pedantic = { level = "warn", priority = 0 }
 
 [features]
-default = ["rapier2d", "parallel", "plugin"]
+default = ["rapier2d", "parallel", "plugin", "preprocess"]
 avian2d = ["dep:avian2d"]
 rapier2d = ["dep:bevy_rapier2d"]
 parallel = ["edges/parallel"]
 plugin = ["bevy/bevy_sprite", "bevy/bevy_asset", "bevy/bevy_log"]
+preprocess = ["dep:serde", "dep:ron", "bevy/bevy_sprite", "bevy/bevy_asset", "bevy/asset_processor", "bevy/png", "bevy/serialize", "bevy/bevy_render"]
 
 [dependencies]
 image = { version = "0.25", default-features = false }
@@ -42,6 +43,14 @@ version = "0.6"
 optional = true
 default-features = false
 features = ["2d", "parry-f32"]
+
+[dependencies.serde]
+version = "1"
+optional = true
+
+[dependencies.ron]
+version = "0.12"
+optional = true
 
 [dev-dependencies]
 bevy = "0.18"
