@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/bevy_collider_gen.svg)](https://crates.io/crates/bevy_collider_gen)
 [![Crates.io](https://img.shields.io/crates/d/bevy_collider_gen.svg)](https://crates.io/crates/bevy_collider_gen)
+[![Bevy](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fshnewto%2Fbevy_collider_gen%2Fmain%2FCargo.toml&query=%24.dependencies.bevy.version&label=bevy&color=pink)](https://crates.io/crates/bevy)
 [![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/shnewto/bevy_collider_gen#license)
 
 A library for generating 2d colliders, for bevy apps, from images with transparency
@@ -135,15 +136,6 @@ for coords in edge_coordinate_groups {
 ```
 
 ![convex decomposition collider on a car sprite](https://github.com/shnewto/bevy_collider_gen/blob/main/img/convex-decomposition.png?raw=true)
-
-## Bevy Supported Versions
-
-| Bevy | bevy_collider_gen | avian | rapier |
-| ---- | ----------------- | ----- | ------ |
-| 0.16 | 0.5               | 0.3   | 0.30.0 |
-| 0.15 | 0.4               | 0.2   | 0.28.0 |
-| 0.14 | 0.2.2 - 0.3       | 0.1   | 0.27.0 |
-| 0.13 | 0.1 - 0.2.1       | x     | 0.25.0 |
 
 ## License
 
