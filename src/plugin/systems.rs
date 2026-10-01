@@ -105,7 +105,7 @@ pub fn update_colliders<TargetCollider>(
             };
 
             #[cfg(feature = "preprocess")]
-            let spawned = if let Some(collider) = cached_collider.0 {
+            let spawned = if let Some(mut collider) = cached_collider.0 {
                 if !image_changed && !sprite_changed {
                     let Ok(mut target) = commands.get_entity(entity) else {
                         continue;
@@ -151,7 +151,7 @@ pub fn update_colliders<TargetCollider>(
                                 if !saved_query.iter_mut().any(
                                     |LoadedCollider(image_handle, collider_handle)| {
                                         if handle == *image_handle {
-                                            if let Some(collider) =
+                                            if let Some(mut collider) =
                                                 cached_colliders.get_mut(collider_handle)
                                             {
                                                 *collider = CachedCollider::Atlas(ColliderAtlas(
@@ -178,7 +178,7 @@ pub fn update_colliders<TargetCollider>(
                                 }
 
                                 // Find the new collider at the current atlas position and insert it
-                                if let Some(collider) = colliders
+                                if let Some(mut collider) = colliders
                                     .get(atlas.index)
                                     .cloned()
                                     .flatten()
@@ -235,7 +235,7 @@ pub fn update_colliders<TargetCollider>(
                             if !saved_query.iter_mut().any(
                                 |LoadedCollider(image_handle, collider_handle)| {
                                     if handle == *image_handle {
-                                        if let Some(collider) =
+                                        if let Some(mut collider) =
                                             cached_colliders.get_mut(collider_handle)
                                         {
                                             *collider = CachedCollider::Multiple(colliders.clone());
@@ -257,7 +257,7 @@ pub fn update_colliders<TargetCollider>(
                             }
 
                             // Insert the new collider version for the current entity
-                            if let Some(collider) = colliders.get(index) {
+                            if let Some(mut collider) = colliders.get(index) {
                                 if let Some(target_collider) = collider.0.clone().into() {
                                     let Ok(mut target) = commands.get_entity(entity) else {
                                         continue;
@@ -294,7 +294,7 @@ pub fn update_colliders<TargetCollider>(
                                 if !saved_query.iter_mut().any(
                                     |LoadedCollider(image_handle, collider_handle)| {
                                         if handle == *image_handle {
-                                            if let Some(collider) =
+                                            if let Some(mut collider) =
                                                 cached_colliders.get_mut(collider_handle)
                                             {
                                                 *collider = CachedCollider::Single(
@@ -318,7 +318,7 @@ pub fn update_colliders<TargetCollider>(
                                 }
 
                                 // Insert the new collider
-                                if let Some(collider) = abstract_collider.into() {
+                                if let Some(mut collider) = abstract_collider.into() {
                                     let Ok(mut target) = commands.get_entity(entity) else {
                                         continue;
                                     };
@@ -373,7 +373,7 @@ where
     TargetCollider: Component,
 {
     // Find a [`CachedCollider`] for the [`Image`]
-    if let Some(collider) =
+    if let Some(mut collider) =
         saved_query
             .iter()
             .find_map(|LoadedCollider(image_handle, collider_handle)| {

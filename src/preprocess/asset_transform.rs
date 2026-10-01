@@ -147,6 +147,7 @@ impl ColliderLoader {
             let layers = match array_layout {
                 ImageArrayLayout::RowCount { rows } => rows,
                 ImageArrayLayout::RowHeight { pixels } => image.height() / pixels,
+                ImageArrayLayout::GridCount { .. } | ImageArrayLayout::GridSize { .. } => todo!(),
             };
 
             image
@@ -170,8 +171,9 @@ impl AssetSaver for ColliderSaver {
     async fn save(
         &self,
         writer: &mut Writer,
-        asset: SavedAsset<'_, Self::Asset>,
+        asset: SavedAsset<'_, '_, Self::Asset>,
         _settings: &Self::Settings,
+         asset_path: bevy::asset::AssetPath<'_>,
     ) -> Result<ColliderSettings, Self::Error> {
         let image_ref = &asset.get().source;
         let (image_raw, load_settings) = Self::image_to_bytes(image_ref, default(), "png")
